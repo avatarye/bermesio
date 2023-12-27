@@ -11,6 +11,7 @@ dependencies = [
     "virtualenv>=20.25.0",
     "setuptools>=69.0.3",
     "pytest>=7.4.3",
+    "dill>=0.3.7",
 ]
 requires-python = ">=3.10"
 readme = "README.md"

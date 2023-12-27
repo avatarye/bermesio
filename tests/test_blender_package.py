@@ -1,5 +1,7 @@
 from packaging.version import Version
 
+from test_common import *
+
 from components.python_package import PythonPackage, PythonLibrary, PythonPackageSet
 
 
@@ -14,10 +16,14 @@ def test_python_pacakge_class():
     pkg = PythonPackage('my_package')
     assert str(pkg) == 'my_package==unknown'
 
+    assert is_dillable(pkg), 'PythonPackage should be picklable'
+
 
 def test_python_library_class():
     lib = PythonLibrary(r'C:\TechDepot\Github\bermesio')
     assert lib.name == 'bermesio'
+
+    assert is_dillable(lib), 'PythonLibrary should be picklable'
 
 
 def test_python_package_set_class():
@@ -63,3 +69,4 @@ def test_python_package_set_class():
     assert len(difference.package_dict) == 2
     assert difference.package_dict['numpy'].version == Version('1.26.2')
 
+    assert is_dillable(p12_packages), 'PythonPackageSet should be picklable'

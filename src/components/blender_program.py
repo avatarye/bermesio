@@ -3,15 +3,16 @@ from pathlib import Path
 import packaging.version
 
 from commons.command import run_command
+from components.manager import pooled_class
 from components.python_package import PythonPackageSet
 
 
+@pooled_class
 class BlenderProgram:
     """
     A class representing a Blender program with necessary information, including the Blender version, the Python
     version, and the Python packages.
     """
-
     def __init__(self, blender_exe_path):
         self.blender_exe_path = Path(blender_exe_path)
         if self.blender_exe_path.exists():
@@ -31,7 +32,12 @@ class BlenderProgram:
         else:
             raise Exception(f'Error getting Blender version: {result.message}')
 
-    def _get_python_exe_path_version(self):
+    def _get_python_exe_path_version(self) -> (Path, packaging.version.Version):
+        """
+        Get the Python executable path and version of the Blender Python environment.
+
+        :return: a tuple of Python executable path and Python version
+        """
         result = run_command(f'"{self.blender_exe_path}" --background '
                              f'--python-expr "import sys; print(\'interpreter_path:\', sys.executable); '
                              f'print(\'version:\', sys.version)" --factory-startup --python-exit-code 1')
@@ -47,10 +53,18 @@ class BlenderProgram:
         else:
             raise Exception(f'Error getting Blender Python exe path and version: {result.message}')
 
-    def _get_python_packages(self):
+    def _get_python_packages(self) -> PythonPackageSet:
+        """
+        Get the Python packages installed in Blender Python environment.
+
+        :return: a PythonPackageSet object
+        """
         result = run_command(f'"{self.python_exe_path}" -m pip freeze',
                              expected_success_data_format=PythonPackageSet)
         if result.ok:
             return result.data
         else:
             raise Exception(f'Error getting Blender Python packages: {result.message}')
+
+    def __str__(self):
+        return f'Blender {self.blender_version} with Python {self.python_version}'

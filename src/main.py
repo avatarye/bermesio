@@ -12,13 +12,6 @@ from config import CONFIG
 
 
 
-def create_env(python_path, env_path):
-    if not env_path.exists():
-        os.makedirs(env_path)
-    options = [env_path.as_posix(), '--python', python_path.as_posix()]
-    result = virtualenv.cli_run(options)
-    match_blender_python_packages(env_path, python_path)
-    return result
 
 def launch_blender(blender_path, env_path):
     if sys.platform == "win32":

@@ -34,11 +34,9 @@ class PythonPackage:
             return name_version_str, None
         return None, None
 
-    def gen_pypi_info(self) -> (bool, dict):
+    def gen_pypi_info(self):
         """
-        Check if this package exists on PyPI, if yes get additional information of the package from PyPI.
-
-        :return: if the package is found on PyPI, the package info
+        Generate a dictionary of PyPI information for the package, including the latest version and the description.
         """
         api_url = f"https://pypi.org/pypi/{self.name}/json"
         response = requests.get(api_url)
@@ -135,40 +133,3 @@ class PythonPackageSet:
 
     def __str__(self):
         return self.get_install_str()
-
-
-
-def list_venv_packages(env_path):
-    if sys.platform == "win32":
-        activate_script = env_path / 'Scripts' / 'activate.bat'
-        command = f'cmd.exe /c "{activate_script} && pip freeze"'
-    else:
-        activate_script = env_path / 'bin' / 'activate'
-        command = f'source {activate_script} && pip freeze'
-    return run_command(command, expected_success_data_format=PythonPackageSet)
-
-
-def get_blender_python_packages(blender_path):
-    command = f'"{blender_path}" -m pip freeze'
-    return run_command(command, expected_success_data_format=PythonPackageSet)
-
-
-def install_packages(env_path, packages: PythonPackageSet):
-    if sys.platform == "win32":
-        activate_script = env_path / 'Scripts' / 'activate.bat'
-        command = f'cmd.exe /c "{activate_script} && pip install {packages.get_install_str()}"'
-    else:
-        activate_script = env_path / 'bin' / 'activate'
-        command = f'source {activate_script} && pip install {packages.get_install_str()}'
-    return run_command(command)
-
-
-def match_blender_python_packages(env_path, blender_path):
-    blender_packages = get_blender_python_packages(blender_path)
-    venv_packages = list_venv_packages(env_path)
-    missing_packages = blender_packages.data - venv_packages.data
-    if missing_packages.package_collection:
-        result = install_packages(env_path, missing_packages)
-    else:
-        result = Result(True, 'No missing packages', None)
-    return result
