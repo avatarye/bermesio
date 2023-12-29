@@ -15,7 +15,7 @@ class ObjectPool:
     from disk. This is to accelerate the startup time of the program, so the expensive objects don't need to be created
     again.
     """
-    save_file_path = Path(__file__).parent / 'object_pool.dill'
+    save_file_path = Path(__file__).parent / 'object_pool.dill'  # TODO: Need to use a path managed by the app.
 
     pool = {}
 
@@ -24,9 +24,15 @@ class ObjectPool:
         raise Exception('ObjectPool should not be instantiated.')
 
     @staticmethod
-    def _get_object_pool_key(obj_cls, obj_args, obj_kwargs):
+    def _get_object_pool_key(obj_cls, obj_args, obj_kwargs) -> str:
         """
         Get the key for the object pool by concatenate class name, init arguments, and init keyword arguments together.
+
+        :param obj_cls: the class of the object
+        :param obj_args: the arguments passed to the __init__ method
+        :param obj_kwargs: the keyword arguments passed to the __init__ method
+
+        :return: the key for the object pool
         """
         obj_args_str = ','.join([str(arg) for arg in obj_args]).lower()
         obj_kwargs_str = ','.join([f'{key}={value}' for key, value in obj_kwargs.items()]).lower()
@@ -47,7 +53,7 @@ class ObjectPool:
             del cls.pool[obj._pool_key]
 
     @classmethod
-    def get(cls, obj_cls, obj_args, obj_kwargs):
+    def get(cls, obj_cls, obj_args, obj_kwargs) -> object or None:
         """Get an object from the pool using the class, args and kwargs as the key."""
         pool_key = cls._get_object_pool_key(obj_cls, obj_args, obj_kwargs)
         return cls.pool.get(pool_key, None)
@@ -90,15 +96,29 @@ def pooled_class(cls):
     @wraps(cls)
     def wrapper(*args, **kwargs):
         if 'store_in_pool' in kwargs:  # Pooling only happens when additional "store_in_pool" argument set to true.
-            del kwargs['store_in_pool']  # Remove it from kwargs so it doesn't get passed to __init__.
+            del kwargs['store_in_pool']  # Remove it from kwargs, so it doesn't get passed to __init__.
             result = ObjectPool.get(cls, args, kwargs)  # Check if the object already exists in the pool.
             if result:
                 return result
             else:
-                object = cls(*args, **kwargs)
-                ObjectPool.add(object, args, kwargs)
-                return object
+                obj = cls(*args, **kwargs)
+                ObjectPool.add(obj, args, kwargs)
+                return obj
         else:  # If "store_in_pool" is not set, just create the object without pooling.
-            object = cls(*args, **kwargs)
-            return object
+            obj = cls(*args, **kwargs)
+            return obj
     return wrapper
+
+
+class PreferenceManager:
+    """
+    A class for managing user preferences, including the path to the Blender executable, the path to the Blender
+    virtual environment, and the path to the Blender addon repository.
+    """
+    blender_exe_path = None
+    blender_venv_path = None
+    blender_addon_repo_path = None
+
+    @classmethod
+    def load(cls):
+        """Load the user preferences from disk."""
