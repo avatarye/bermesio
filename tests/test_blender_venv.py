@@ -3,10 +3,11 @@ import shutil
 
 from packaging.version import Version
 
-from test_common import *
+from testing_common import *
 
 from components.blender_program import BlenderProgram
 from components.blender_venv import BlenderVenv, BlenderVenvManager
+from components.python_package import PythonPyPIPackage, PythonLocalPackage, PythonLibrary, PythonPackageSet
 
 
 def test_blender_venv_class():
@@ -15,8 +16,15 @@ def test_blender_venv_class():
     if blender_venv_path.exists():
         venv = BlenderVenv(blender_venv_path, store_in_pool=True)
         assert venv.blender_program.blender_version == Version('4.0.1')
-
         assert is_dillable(venv), 'BlenderVenv should be picklable'
+
+
+def test_blender_venv_class_launch_functions():
+    # This test will only succeed if Blender is installed at the given path.
+    blender_venv_path = Path(r'c:\TechDepot\Github\bermesio\_data\venvs\venv_blender_4.0.1_1')
+    if blender_venv_path.exists():
+        venv = BlenderVenv(blender_venv_path, store_in_pool=True)
+        venv.launch_shell()
 
 
 def test_blender_venv_manager_class():
@@ -28,7 +36,14 @@ def test_blender_venv_manager_class():
         shutil.rmtree(venv_path)
     blender_program = BlenderProgram(blender_exe_path)
     blender_venv = BlenderVenvManager.create_blender_venv(blender_program, venv_path)
-    assert Path(blender_venv.blender_venv_config['base-executable']) == blender_program.python_exe_path
+    assert Path(blender_venv.venv_config['base-executable']) == blender_program.python_exe_path
+    result = blender_venv.install_bpy_package()
+    assert result.ok, f'Error installing bpy package: {result.message}'
+    result = blender_venv.install_site_pacakge(PythonPyPIPackage('scipy'))
+    assert result.ok, f'Error installing site package: {result.message}'
+    result = blender_venv.install_site_pacakge(PythonPackageSet('packaging\nutm\nshapely'))
+    assert result.ok, f'Error installing site package: {result.message}'
+
     # Remove the test venv directory
     shutil.rmtree(venv_path)
 

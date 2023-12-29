@@ -1,10 +1,11 @@
-import pickle
-import dill
+from commons.common import blog
 
 
-def is_dillable(obj):
-    try:
-        dill.dumps(obj)
-        return True
-    except:
-        return False
+def test_logging():
+    """ This is a test function for observing the output of the global logger. """
+    blog(1, 'This is a debug message')
+    blog(2, 'This is an info message')
+    blog(3, 'This is a warning message')
+    blog(4, 'This is an error message')
+    blog(5, 'This is a critical message')
+    assert True

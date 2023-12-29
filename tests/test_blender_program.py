@@ -2,7 +2,7 @@ from pathlib import Path
 
 from packaging.version import Version
 
-from test_common import *
+from testing_common import *
 
 from components.blender_program import BlenderProgram
 

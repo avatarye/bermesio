@@ -7,8 +7,5 @@ class Config:
     app_name = 'Bermesio'
 
     def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, '_instance'):
-            cls._instance = super(Config, cls).__new__(cls)
-        return cls._instance
-
-CONFIG = Config()
+        """Guard against instantiation."""
+        raise Exception('Config should not be instantiated.')

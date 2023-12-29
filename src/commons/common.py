@@ -1,5 +1,11 @@
 from dataclasses import dataclass
+import logging
+import sys
 
+from config import Config
+
+
+# region Result Type
 
 @dataclass
 class Result:
@@ -9,5 +15,90 @@ class Result:
     function call. In case of a failure, the data field will contain the exception raised by the function call.
     """
     ok: bool
-    message: str or [str]
-    data: any
+    message: str or [str] = ''
+    data: any = None
+
+# endregion
+
+
+# region Global logger
+
+class _LoggerLTFilter(logging.Filter):
+    """Less-than filter for Logger"""
+
+    def __init__(self, level, name=""):
+        super(_LoggerLTFilter, self).__init__(name)
+        self.max_level = level
+
+    def filter(self, record):
+        # non-zero return means we log this message
+        return 1 if record.levelno < self.max_level else 0
+
+
+class _LoggerGTFilter(logging.Filter):
+    """Greater-than filter for Logger"""
+
+    def __init__(self, level, name=""):
+        super(_LoggerGTFilter, self).__init__(name)
+        self.level = level
+
+    def filter(self, record):
+        # non-zero return means we log this message
+        return 1 if record.levelno > self.level else 0
+
+
+class Logger:
+    """
+    Serves as a global logger for all downstream functions. Common simpleton pattern is not in this class because
+    Python's logging class itself keeps a global reference to the logger based on the name. It is recommended to use
+    this class as shown in the snippet below:
+
+    Example:
+        >>> log = Logger('YourAppName', level=logging.DEBUG, include_time=True).log
+        >>> log('info', 'This is an info message')
+        >>> log(2, 'This is an info message')
+        >>> log('debug', 'This is a debug message')
+        >>> log(1, 'This is a debug message')
+
+    """
+
+    logger = None
+
+    def __init__(self, logger_name, level=logging.DEBUG, include_time=False):
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(level)
+        logger.propagate = False  # Prevent duplicate logging by the root logger
+        # Logger and handler of the logging module is globally persistent, so check before create new ones.
+        if len(logger.handlers) == 0:
+            if include_time:
+                formatter = logging.Formatter('%(asctime)s - [%(name)s %(levelname)s]: %(message)s')
+            else:
+                formatter = logging.Formatter('[%(name)s %(levelname)s]: %(message)s')
+            # Use 2 handlers to output messages via stdout and stderr respectively to have desired text colors in DCC
+            # console
+            handler_out = logging.StreamHandler(sys.stdout)
+            handler_out.setLevel(logging.DEBUG)
+            handler_out.addFilter(_LoggerLTFilter(logging.ERROR))
+            handler_out.setFormatter(formatter)
+            logger.addHandler(handler_out)
+
+            handler_err = logging.StreamHandler(sys.stderr)
+            handler_err.setLevel(logging.WARNING)
+            handler_err.addFilter(_LoggerGTFilter(logging.WARNING))
+            handler_err.setFormatter(formatter)
+            logger.addHandler(handler_err)
+        self.logger = logger
+
+    def log(self, level, message):
+        """Log function for the logger"""
+        assert self.logger is not None, 'Logger is not initialized'
+        levels = {5: 'critical', 4: 'error', 3: 'warning', 2: 'info', 1: 'debug'}
+        if isinstance(level, int):
+            level = levels.get(level, None)
+        assert isinstance(level, str) and level in dir(self.logger), f'Incorrect logging level, {level}'
+        getattr(self.logger, level)(message)
+
+
+blog = Logger(f'{Config.app_name}', level=logging.DEBUG, include_time=True).log
+
+# endregion
