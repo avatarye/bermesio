@@ -1,19 +1,19 @@
 from packaging.version import Version
 from pathlib import Path
 
-from testing_common import *
+from testing_common import TESTDATA, is_dillable
 
 from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonLibrary, PythonPackageSet
 
 
 def test_python_local_package_class():
-    local_package_path = Path(r'c:\TechDepot\Github\bermesio\_data\venvs\venv_blender_4.0.1_1\Lib\bpy_package\bpy')
-    local_package = PythonLocalPackage(local_package_path)
-    assert all([local_package.name == 'bpy', local_package.version == Version('4.0.0')]), \
+    bpy_package_path = Path(TESTDATA['blender_venv|0|bpy_package_path'])
+    bpy_package = PythonLocalPackage(bpy_package_path)
+    assert all([bpy_package.name == 'bpy', bpy_package.version == Version(TESTDATA['blender_venv|0|bpy_package_version'])]), \
         'PythonLocalPackage should be able to get the package name and version from its path'
-    assert local_package.get_installation_str() == 'bpy==4.0.0', \
+    assert bpy_package.get_installation_str() == 'bpy==4.0.0', \
         'PythonLocalPackage should be able to get the installation string'
-    assert is_dillable(local_package), 'PythonLocalPackage should be picklable'
+    assert is_dillable(bpy_package), 'PythonLocalPackage should be picklable'
 
 
 def test_python_pypi_pacakge_class():
@@ -38,7 +38,7 @@ def test_python_library_class():
 
 def test_python_package_set_class():
     # Test PythonPackageSet with local package path
-    venv_packagee_path = Path(r'c:\TechDepot\Github\bermesio\_data\venvs\venv_blender_4.0.1_1\Lib\site-packages')
+    venv_packagee_path = Path(TESTDATA['blender_venv|0|site_packages_path'])
     venv_packages = PythonPackageSet(venv_packagee_path)
     assert len(venv_packages.package_dict.values()) == 12
 
@@ -90,7 +90,7 @@ def test_python_package_set_class():
     # Test empty PythonPackageSet with add and remove operations
     empty = PythonPackageSet('')
     empty.add_package(PythonPyPIPackage('numpy==1.26.2'))
-    local_bpy_package_path = Path(r'c:\TechDepot\Github\bermesio\_data\venvs\venv_blender_4.0.1_1\Lib\bpy_package\bpy')
+    local_bpy_package_path = Path(TESTDATA['blender_venv|0|bpy_package_path'])
     bpy_package = PythonLocalPackage(local_bpy_package_path)
     empty.add_package(bpy_package)
     assert len(empty.package_dict) == 2, 'PythonPackageSet should be able to add packages'

@@ -51,7 +51,7 @@ class PythonLocalPackage(PythonPackage):
                 try:
                     self.name = self.metadata['name']
                     self.version = packaging.version.parse(self.metadata['version'])
-                    self.summary = self.metadata['summary']
+                    self.summary = self.metadata.get('summary', 'Unknown')
                     # if 'requires-python' in self.metadata:
                     #     self.required_python = packaging.version.parse(self.metadata['requires-python'])
                     # else:

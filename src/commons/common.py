@@ -1,6 +1,14 @@
 from dataclasses import dataclass
 import logging
+import os
+from pathlib import Path
+import re
+import shutil
 import sys
+import uuid
+
+import dill
+import packaging.version
 
 from config import Config
 
@@ -100,5 +108,115 @@ class Logger:
 
 
 blog = Logger(f'{Config.app_name}', level=logging.DEBUG, include_time=True).log
+
+# endregion
+
+
+# region Dillable
+
+class Dillable:
+    """
+    A base class that has dill related functions.
+    """
+
+    def __init__(self):
+        self.saved_app_version: packaging.version.Version = Config.app_version
+        self.uuid = uuid.uuid4().hex
+        self.dill_extension = '.dil'
+        self.dill_save_path = None
+
+    def save_to_disk(self, save_dir: str or Path):
+        """Save the object to disk as a dill file."""
+        self.dill_save_path = Path(save_dir) / f'{self.uuid}{self.dill_extension}'
+        with open(self.dill_save_path, 'wb') as pickle_file:
+            self.saved_app_version = Config.app_version
+            dill.dump(self, pickle_file)
+
+    @classmethod
+    def load_from_disk(cls, file_path: str or Path):
+        """Load the dill file from disk, run its verification function and return the loaded instance."""
+        file_path = Path(file_path)
+        if file_path.exists() and file_path.is_file():
+            with open(file_path, 'rb') as pickle_file:
+                loaded_instance = dill.load(pickle_file)
+            # Compare version
+            if loaded_instance.saved_app_version != Config.app_version:
+                blog(3, f'Dill file saved with an old version {loaded_instance.saved_app_version}.')
+            # Verify the loaded instance
+            if loaded_instance.verify():
+                loaded_instance.is_verified = True
+            else:
+                loaded_instance.is_verified = False
+                blog(3, f'Verification failed for {loaded_instance.__class__.__name__} restored from {file_path}')
+            return loaded_instance
+        else:
+            raise FileNotFoundError(f'Dill file not found: {file_path}')
+
+    def remove_from_disk(self):
+        """Remove the dill file from disk."""
+        if self.dill_save_path and self.dill_save_path.exists():
+                os.remove(self.dill_save_path)
+
+    def verify(self) -> bool:
+        """Verify the object, mainly called after restoration. Actual implementation is in the subclass."""
+        raise NotImplementedError
+
+    def __eq__(self, other):
+        return self.uuid == other.uuid
+
+# endregion
+
+
+# region Shared functions
+
+class SharedFunctions:
+
+    def __new__(cls, *args, **kwargs):
+        raise Exception('This class should not be instantiated.')
+
+    @staticmethod
+    def ready_target_path(target_path, ensure_parent_dir=True, delete_existing=False) -> bool:
+        target_path = Path(target_path)
+        parent_path = target_path.parent
+        # Ensure parent directory exists
+        if ensure_parent_dir and not parent_path.exists():
+            parent_path.mkdir(parents=True)
+        # Ensure target path uses a valid name
+        if not SharedFunctions.is_name_valid(target_path.name):
+            raise ValueError(f'Invalid name: {target_path.name}')
+        # Ensure target path is ready
+        if parent_path.exists() and parent_path.is_dir():
+            if target_path.exists():
+                if delete_existing:
+                    if target_path.is_file():
+                        os.remove(target_path)
+                    else:
+                        shutil.rmtree(target_path)
+                else:
+                    raise FileExistsError(f'Addon already exists at {target_path}')
+            if not target_path.exists():
+                return True
+            else:
+                raise Exception(f'Error readying target path at {target_path}')
+        else:
+            raise FileNotFoundError(f'Repository directory not found at {parent_path}')
+
+    @staticmethod
+    def is_name_valid(name: str) -> bool:
+        """"""
+        pattern = re.compile(r'^[a-zA-Z0-9_-]*$')  # Only allow alphanumeric, underscore, and hyphen
+        return True if pattern.match(name) else False
+
+    @staticmethod
+    def remove_file(file_path: str or Path) -> Result:
+        file_path = Path(file_path)
+        if file_path.exists():
+            os.remove(file_path)
+            if file_path.exists():
+                return Result(False, f'Error removing {file_path}')
+            else:
+                return Result(True, f'{file_path} removed')
+        else:
+            return Result(True, f'{file_path} not found')
 
 # endregion
