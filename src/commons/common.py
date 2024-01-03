@@ -25,6 +25,21 @@ class Result:
     ok: bool
     message: str or [str] = ''
     data: any = None
+    log_level: int = 3
+
+    def __init__(self, ok: bool, message: str or [str] = '', data: any = None, log_level: int = 3):
+        self.ok = ok
+        self.message = message
+        self.data = data
+        self.log_level = log_level
+        if not self.ok:
+            blog(self.log_level, self.message)
+
+    def __str__(self):
+        return f'{"Success" if self.ok else "Failure"}: {self.message}, {self.data}'
+
+    def __bool__(self):
+        return self.ok
 
 # endregion
 
@@ -34,7 +49,7 @@ class Result:
 class _LoggerLTFilter(logging.Filter):
     """Less-than filter for Logger"""
 
-    def __init__(self, level, name=""):
+    def __init__(self, level: int, name: str = ""):
         super(_LoggerLTFilter, self).__init__(name)
         self.max_level = level
 
@@ -46,7 +61,7 @@ class _LoggerLTFilter(logging.Filter):
 class _LoggerGTFilter(logging.Filter):
     """Greater-than filter for Logger"""
 
-    def __init__(self, level, name=""):
+    def __init__(self, level: int, name: str = ""):
         super(_LoggerGTFilter, self).__init__(name)
         self.level = level
 
@@ -67,10 +82,11 @@ class Logger:
         >>> log(2, 'This is an info message')
         >>> log('debug', 'This is a debug message')
         >>> log(1, 'This is a debug message')
-
     """
 
     logger = None
+
+    levels = {5: 'critical', 4: 'error', 3: 'warning', 2: 'info', 1: 'debug'}
 
     def __init__(self, logger_name, level=logging.DEBUG, include_time=False):
         logger = logging.getLogger(logger_name)
@@ -97,12 +113,16 @@ class Logger:
             logger.addHandler(handler_err)
         self.logger = logger
 
-    def log(self, level, message):
-        """Log function for the logger"""
+    def log(self, level: int or str, message: str):
+        """
+        The main log function for this logger class.
+
+        :param level: logging level, can be an integer or a string
+        :param message: message to be logged
+        """
         assert self.logger is not None, 'Logger is not initialized'
-        levels = {5: 'critical', 4: 'error', 3: 'warning', 2: 'info', 1: 'debug'}
         if isinstance(level, int):
-            level = levels.get(level, None)
+            level = self.levels.get(level, None)
         assert isinstance(level, str) and level in dir(self.logger), f'Incorrect logging level, {level}'
         getattr(self.logger, level)(message)
 
@@ -122,40 +142,57 @@ class Dillable:
     def __init__(self):
         self.saved_app_version: packaging.version.Version = Config.app_version
         self.uuid = uuid.uuid4().hex
-        self.dill_extension = '.dil'
+        self.dill_extension = '.dil'  # This will be overriden by subclasses
         self.dill_save_path = None
 
-    def save_to_disk(self, save_dir: str or Path):
-        """Save the object to disk as a dill file."""
-        self.dill_save_path = Path(save_dir) / f'{self.uuid}{self.dill_extension}'
+    def save_to_disk(self, save_dir: str or Path) -> Result:
+        """
+        Save the object to disk as a dill file.
+
+        :param save_dir: the directory to save the dill file
+
+        :return: a Result object
+        """
+        self.dill_save_path = Path(save_dir) / f'{self.uuid}{self.__class__.dill_extension}'
         with open(self.dill_save_path, 'wb') as pickle_file:
             self.saved_app_version = Config.app_version
-            dill.dump(self, pickle_file)
+            try:
+                dill.dump(self, pickle_file)
+                return Result(True, f'{self.__class__.__name__} saved to {self.dill_save_path}')
+            except Exception as e:
+                return Result(False, f'Error saving {self.__class__.__name__} to {self.dill_save_path}: {e}')
 
     @classmethod
-    def load_from_disk(cls, file_path: str or Path):
-        """Load the dill file from disk, run its verification function and return the loaded instance."""
+    def load_from_disk(cls, file_path: str or Path) -> Result:
+        """
+        Load the dill file from disk, run its verification function and return the loaded instance.
+
+        :param file_path: the path of the dill file
+
+        :return: a Result object, the data field contains the loaded instance if successful
+        """
         file_path = Path(file_path)
         if file_path.exists() and file_path.is_file():
             with open(file_path, 'rb') as pickle_file:
                 loaded_instance = dill.load(pickle_file)
             # Compare version
             if loaded_instance.saved_app_version != Config.app_version:
-                blog(3, f'Dill file saved with an old version {loaded_instance.saved_app_version}.')
+                blog(3, f'Dill file saved with a different version {loaded_instance.saved_app_version}.')
             # Verify the loaded instance
             if loaded_instance.verify():
                 loaded_instance.is_verified = True
+                return Result(True, f'{loaded_instance.__class__.__name__} restored from {file_path}', loaded_instance)
             else:
                 loaded_instance.is_verified = False
-                blog(3, f'Verification failed for {loaded_instance.__class__.__name__} restored from {file_path}')
-            return loaded_instance
+                return Result(True, f'Verification failed for {loaded_instance.__class__.__name__} restored from '
+                                    f'{file_path}', loaded_instance)  # Still return the loaded instance
         else:
-            raise FileNotFoundError(f'Dill file not found: {file_path}')
+            return Result(False, f'Dill file not found: {file_path}')
 
     def remove_from_disk(self):
         """Remove the dill file from disk."""
         if self.dill_save_path and self.dill_save_path.exists():
-                os.remove(self.dill_save_path)
+            SharedFunctions.remove_target_path(self.dill_save_path)
 
     def verify(self) -> bool:
         """Verify the object, mainly called after restoration. Actual implementation is in the subclass."""
@@ -170,53 +207,101 @@ class Dillable:
 # region Shared functions
 
 class SharedFunctions:
+    """A static class that contains shared functions across the application."""
 
     def __new__(cls, *args, **kwargs):
         raise Exception('This class should not be instantiated.')
 
     @staticmethod
-    def ready_target_path(target_path, ensure_parent_dir=True, delete_existing=False) -> bool:
-        target_path = Path(target_path)
-        parent_path = target_path.parent
-        # Ensure parent directory exists
-        if ensure_parent_dir and not parent_path.exists():
-            parent_path.mkdir(parents=True)
-        # Ensure target path uses a valid name
-        if not SharedFunctions.is_name_valid(target_path.name):
-            raise ValueError(f'Invalid name: {target_path.name}')
-        # Ensure target path is ready
-        if parent_path.exists() and parent_path.is_dir():
-            if target_path.exists():
-                if delete_existing:
-                    if target_path.is_file():
-                        os.remove(target_path)
-                    else:
-                        shutil.rmtree(target_path)
-                else:
-                    raise FileExistsError(f'Addon already exists at {target_path}')
-            if not target_path.exists():
-                return True
-            else:
-                raise Exception(f'Error readying target path at {target_path}')
-        else:
-            raise FileNotFoundError(f'Repository directory not found at {parent_path}')
+    def is_valid_name_for_path(name: str) -> bool:
+        """
+        Check if a name is valid, i.e. only contains alphanumeric, underscore, period, and hyphen, and can be used as
+        a file or directory name.
 
-    @staticmethod
-    def is_name_valid(name: str) -> bool:
-        """"""
-        pattern = re.compile(r'^[a-zA-Z0-9_-]*$')  # Only allow alphanumeric, underscore, and hyphen
+        :param name: the name to be checked
+
+        :return: True if the name is valid, otherwise False
+        """
+        pattern = re.compile(r'^[a-zA-Z0-9_.-]*$')
         return True if pattern.match(name) else False
 
     @staticmethod
-    def remove_file(file_path: str or Path) -> Result:
-        file_path = Path(file_path)
-        if file_path.exists():
-            os.remove(file_path)
-            if file_path.exists():
-                return Result(False, f'Error removing {file_path}')
+    def create_target_dir(target_dir: str or Path) -> Result:
+        """
+        A static method that creates a directory.
+        :param target_dir:
+        :return:
+        """
+        target_dir = Path(target_dir)
+        if not target_dir.exists():
+            try:
+                target_dir.mkdir(parents=True)
+            except OSError as e:
+                return Result(False, f'Error creating {target_dir}: {e}')
+            if target_dir.exists():
+                return Result(True, f'{target_dir} created')
             else:
-                return Result(True, f'{file_path} removed')
+                return Result(False, f'Error creating {target_dir}')
         else:
-            return Result(True, f'{file_path} not found')
+            return Result(True, f'{target_dir} already exists')
+
+    @staticmethod
+    def remove_target_path(target_path: str or Path) -> Result:
+        """
+        A static method that removes a file or a directory.
+
+        :param target_path: a Path object or a string representing the target path
+
+        :return: a Result object
+        """
+        target_path = Path(target_path)
+        if target_path.exists():
+            try:
+                if target_path.is_file():
+                    os.remove(target_path)
+                else:
+                    shutil.rmtree(target_path)
+            except OSError as e:
+                return Result(False, f'Error removing {target_path}: {e}')
+            if target_path.exists():
+                return Result(False, f'Error removing {target_path}')
+            else:
+                return Result(True, f'{target_path} removed')
+        else:
+            return Result(True, f'{target_path} not found')
+
+    @staticmethod
+    def ready_target_path(target_path: str or Path, ensure_parent_dir=True, delete_existing=False) -> Result:
+        """
+        Ready the target path for writing.
+
+        :param target_path: a Path object or a string representing the target path
+        :param ensure_parent_dir: a flag indicating whether to ensure the parent directory exists
+        :param delete_existing: a flag indicating whether to delete the existing file or directory
+
+        :return: a Result object
+        """
+        target_path = Path(target_path)
+        # Ensure target path uses a valid name
+        if not SharedFunctions.is_valid_name_for_path(target_path.name):
+            return Result(False, f'Invalid name: {target_path.name}')
+        # Ensure parent directory exists
+        parent_path = target_path.parent
+        if ensure_parent_dir and not parent_path.exists():
+            result = SharedFunctions.create_target_dir(parent_path)
+            if not result.ok:
+                return result
+        # Ensure target path is ready
+        if parent_path.exists() and parent_path.is_dir():
+            if target_path.exists() and delete_existing:
+                result = SharedFunctions.remove_target_path(target_path)
+                if not result.ok:
+                    return result
+            if not target_path.exists():
+                return Result(True, f'{target_path} ready')
+            else:
+                return Result(False, f'Error readying {target_path}')
+        else:
+            return Result(False, f'Parent directory is not ready at {parent_path}')
 
 # endregion

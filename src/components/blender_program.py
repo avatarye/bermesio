@@ -109,3 +109,9 @@ class BlenderProgram(Dillable):
 
     def __str__(self):
         return f'Blender: {self.name} ({self.blender_version})'
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.blender_exe_path == other.blender_exe_path
+
+    def __hash__(self):
+        return hash(self.blender_exe_path)

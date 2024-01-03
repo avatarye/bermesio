@@ -54,12 +54,50 @@
         "blender_version_min": "2.81.0",
         "description": "This Add-On provides features for better export options with Godot Game Engine"
       },
+      "single_file_zip_one_level_down": {
+        "path": "c:\\TechDepot\\Github\\bermesio\\_data\\test_data\\addons\\godot_game_tools_one_level_down.zip",
+        "name": "Godot Game Tools",
+        "version": "1.0.3",
+        "blender_version_min": "2.81.0",
+        "description": "This Add-On provides features for better export options with Godot Game Engine"
+      },
       "single_file": {
         "path": "c:\\TechDepot\\Github\\bermesio\\_data\\test_data\\addons\\godot_game_tools.py",
         "name": "Godot Game Tools",
         "version": "1.0.3",
         "blender_version_min": "2.81.0",
         "description": "This Add-On provides features for better export options with Godot Game Engine"
+      },
+      "dev_dir": {
+        "path": "c:\\TechDepot\\Github\\bermesio\\_data\\test_data\\addons\\dev_fluent\\src",
+        "name": "Fluent",
+        "version": "1.5.2",
+        "blender_version_min": "2.91.0",
+        "description": "Hard surface modeling tools"
+      }
+    },
+    "blender_script": {
+      "startup": [
+        "C:\\TechDepot\\Github\\bermesio\\_data\\test_data\\scripts\\box_creator.py"
+      ],
+      "regular": [
+        "C:\\TechDepot\\Github\\bermesio\\_data\\test_data\\scripts\\hello_blender.py"
+      ]
+    },
+    "blender_dev_addon": {
+      "dir": {
+        "path": "C:\\TechDepot\\Github\\bermesio\\_data\\test_data\\dev\\bermesio_sphere_creator",
+        "name": "Bermesio Sphere Creator",
+        "version": "1.0",
+        "blender_version_min": "2.80.0",
+        "description": "Add a sphere to the scene"
+      },
+      "single_file": {
+        "path": "C:\\TechDepot\\Github\\bermesio\\_data\\test_data\\dev\\bermesio_cone_creator.py",
+        "name": "Bermesio Cone Creator",
+        "version": "1.0",
+        "blender_version_min": "2.80.0",
+        "description": "Add a cone to the scene"
       }
     }
   },

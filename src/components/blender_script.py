@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import shutil
 
@@ -28,6 +27,24 @@ class BlenderScript(Dillable):
 
     def verify(self) -> bool:
         return self.script_path.exists()
+
+    def compare_content(self, other) -> bool:
+        """
+        Compare the content of this script with another script. This is often called for the purpose of updating the
+        script in the repository.
+        :param other:
+        :return:
+        """
+        if issubclass(other.__class__, BlenderScript):
+            return self.name == other.name
+        return False
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.addon_path == other.addon_path
+
+    def __hash__(self):
+        return hash(self.script_path)
+
 
 class BlenderRegularScript(BlenderScript):
     def __init__(self, script_path, repo_dir=None, delete_existing=False):

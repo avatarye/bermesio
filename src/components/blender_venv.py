@@ -14,7 +14,6 @@ from components.python_package import PythonLocalPackage, PythonPyPIPackage, Pyt
 from config import Config
 
 
-@pooled_class
 class BlenderVenv(Dillable):
     """
     A class representing a Blender virtual environment with necessary information, including a BlenderProgram object
@@ -200,10 +199,10 @@ class BlenderVenv(Dillable):
         return self._add_local_libraries_to_pth(pth_path)
 
     def remove_venv_pth(self) -> Result:
-        return SF.remove_file(self.venv_path / self.venv_managed_packages_pth_path)
+        return SF.remove_target_path(self.venv_path / self.venv_managed_packages_pth_path)
 
     def remove_blender_pth(self) -> Result:
-        return SF.remove_file(self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name)
+        return SF.remove_target_path(self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name)
 
     def verify(self) -> bool:
         """
@@ -215,6 +214,12 @@ class BlenderVenv(Dillable):
 
     def __str__(self):
         return f'Venv: {self.venv_path.name} ({self.blender_program})'
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.venv_path == other.venv_path
+
+    def __hash__(self):
+        return hash(self.venv_path)
 
 
 class BlenderVenvManager:

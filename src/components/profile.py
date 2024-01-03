@@ -45,7 +45,7 @@ class Profile(Dillable):
         self.custom_additional_script_dir = None
 
     def _get_validated_profile_name(self, name):
-        if SF.is_name_valid(name):
+        if SF.is_valid_name_for_path(name):
             return name
         else:
             raise ValueError(f'Invalid profile name {name}')
@@ -158,3 +158,11 @@ class Profile(Dillable):
 
     def verify(self) -> bool:
         return True
+
+    def __str__(self):
+        return f'Profile: {self.name}'
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.profile_dir == other.profile_dir
+
+r'mklink "c:\TechDepot\AvatarTools\Blender\Launcher\stable\blender-3.6.7-windows-x64\3.6\scripts\addons\bermesio_cone_creator.py" "c:\TechDepot\Github\bermesio\_data\test_data\dev\bermesio_cone_creator.py'
