@@ -5,7 +5,7 @@ from pathlib import Path
 import packaging.version
 
 from commons.command import run_command
-from commons.common import Dillable
+from commons.common import Result, blog, Dillable
 from components.python_package import PythonPackageSet
 
 
@@ -14,7 +14,14 @@ class BlenderProgram(Dillable):
     A class representing a Blender program with necessary information, including the Blender version, the Python
     version, and the Python packages.
     """
-    def __init__(self, blender_exe_path, name=None):
+    def __init__(self, blender_exe_path: str or Path, name: str =None):
+        """
+        Initialize a BlenderProgram object based on an existing Blender executable path, which is typically located
+        outside the repository directory.
+
+        :param blender_exe_path: a str or Path object of the Blender executable path
+        :param name: a custom name for the Blender program, typically from the user input
+        """
         super().__init__()
         self.blender_exe_path = Path(blender_exe_path)
         if self.blender_exe_path.exists():
@@ -32,6 +39,11 @@ class BlenderProgram(Dillable):
             raise FileNotFoundError(f'Blender executable not found at {self.blender_exe_path}')
 
     def _get_blender_version(self) -> packaging.version.Version:
+        """
+        Get the Blender version by running a command in the terminal.
+
+        :return: a Version object of the Blender version
+        """
         result = run_command(f'"{self.blender_exe_path}" --version')
         if result.ok:
             stdout = result.data.stdout
@@ -105,6 +117,16 @@ class BlenderProgram(Dillable):
         """
         return self.blender_exe_path.exists() and self.python_exe_path.exists()
 
+    def compare_source(self, other: 'BlenderProgram') -> bool:
+        """
+        Compare if the Blender executable paths of two BlenderProgram objects are the same.
+
+        :param other: another BlenderProgram object
+
+        :return: True if the Blender executable paths are the same, otherwise False
+        """
+        return self.blender_exe_path == other.blender_exe_path
+
     def __str__(self):
         return f'Blender: {self.name} ({self.blender_version})'
 
@@ -113,3 +135,33 @@ class BlenderProgram(Dillable):
 
     def __hash__(self):
         return hash(self.blender_exe_path)
+
+
+class BlenderProgramManager:
+    """
+    A statis class for creating BlenderProgram objects and other related functions falls outside the scope of the
+    BlenderProgram class.
+    """
+
+    def __new__(cls, *args, **kwargs):
+        raise Exception('This class should not be instantiated.')
+
+    @staticmethod
+    def create_blender_program(blender_exe_path: str or Path, name: str =None) -> Result:
+        """
+        Create a BlenderProgram object based on an existing Blender executable path, which is typically located outside
+        the repository directory.
+
+        :param blender_exe_path: a str or Path object of the Blender executable path
+        :param name: a custom name for the Blender program, typically from the user input
+
+        :return: a Result object with the BlenderProgram object as the data
+        """
+        blender_exe_path = Path(blender_exe_path)
+        try:
+            blender_program = BlenderProgram(blender_exe_path, name)
+            if blender_program.verify():
+                blog(2, 'Blender program instance created successfully.')
+                return Result(True, 'Blender program instance created successfully.', blender_program)
+        except Exception as e:
+            return Result(False, f'Error creating Blender program instance: {e}', e)

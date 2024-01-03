@@ -139,6 +139,8 @@ class Dillable:
     A base class that has dill related functions.
     """
 
+    dill_extension = '.dil'
+
     def __init__(self):
         self.saved_app_version: packaging.version.Version = Config.app_version
         self.uuid = uuid.uuid4().hex
