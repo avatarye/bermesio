@@ -6,11 +6,9 @@ import packaging.version
 
 from commons.command import run_command
 from commons.common import Dillable
-from components.manager import pooled_class
 from components.python_package import PythonPackageSet
 
 
-# @pooled_class
 class BlenderProgram(Dillable):
     """
     A class representing a Blender program with necessary information, including the Blender version, the Python

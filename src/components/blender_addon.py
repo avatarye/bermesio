@@ -157,6 +157,7 @@ class BlenderAddon(Dillable):
                     return Result(False, f'Error creating symlink to addon at {deployed_target_path}. If you are using '
                                          f'Windows, please try again with administrator privilege.')
                 if deployed_target_path.exists():
+                    blog(2, f'Symlinked development addon {self.repo_name} to {deployed_target_path} successfully')
                     return Result(True)
                 else:
                     return Result(False, f'Error deploying addon to {deployed_target_path}')
