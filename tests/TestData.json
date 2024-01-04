@@ -99,7 +99,13 @@
         "blender_version_min": "2.80.0",
         "description": "Add a cone to the scene"
       }
-    }
+    },
+    "python_dev_library": [
+      {
+        "path": "c:\\TechDepot\\Github\\bermesio\\_data\\test_data\\dev_libs\\MyLib\\src\\",
+        "library_name": "BermesioDevLib"
+      }
+    ]
   },
   "darwin": {
     "blender_program": [

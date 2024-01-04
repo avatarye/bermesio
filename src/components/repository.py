@@ -7,8 +7,8 @@ import requests
 
 from commons.common import Result, blog, SharedFunctions as SF
 from components.blender_addon import BlenderAddon
-from components.blender_dev_addon import BlenderDevDirectoryAddon
 from components.blender_program import BlenderProgram
+from components.blender_setup import BlenderSetup
 from components.blender_script import BlenderScript
 from components.blender_venv import BlenderVenv
 from components.python_dev_library import PythonDevLibrary
@@ -25,10 +25,11 @@ class Repository:
     sub_repo_config = {
         'blender_program_repo': { 'path': None, 'extension': '.dbp', 'class': BlenderProgram, },
         'blender_venv_repo': { 'path': 'Venvs', 'extension': '.dbv', 'class': BlenderVenv, },
+        'blender_setup_repo': { 'path': 'Setups', 'extension': '.dsu', 'class': BlenderSetup, },
         'blender_addon_repo': { 'path': 'Addons', 'extension': '.dba', 'class': BlenderAddon, },
         'blender_script_repo': { 'path': 'Scripts', 'extension': '.dbs', 'class': BlenderScript, },
         'dev_library_repo': { 'path': None, 'extension': '.ddb', 'class': PythonDevLibrary, },
-        'dev_addon_repo': { 'path': None, 'extension': '.dda', 'class': BlenderDevDirectoryAddon, },
+        'dev_addon_repo': { 'path': None, 'extension': '.dda', 'class': BlenderAddon, },
         'profile_repo': { 'path': 'Profiles', 'extension': '.dpr', 'class': Profile, },
     }
     sub_repo_dict = {}  # A dict of all sub repo instances, indexed by class name

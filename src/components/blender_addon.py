@@ -160,7 +160,7 @@ class BlenderAddon(Dillable):
                     blog(2, f'Symlinked development addon {self.repo_name} to {deployed_target_path} successfully')
                     return Result(True)
                 else:
-                    return Result(False, f'Error deploying addon to {deployed_target_path}')
+                    return Result(False, f'Error symlinking addon to {deployed_target_path}')
             elif (isinstance(self, BlenderZippedAddon) or isinstance(self, BlenderDirectoryAddon)
                     or isinstance(self, BlenderSingleFileAddon)):
                 # Unzip this addon into the custom_addon_dir
@@ -184,7 +184,7 @@ class BlenderAddon(Dillable):
         """
         return self.addon_path.exists()
 
-    def compare_name(self, other) -> bool:
+    def compare_name(self, other: 'BlenderAddon') -> bool:
         """
         Compare only the name of this addon with another addon. This is often called for the purpose of replacing the
         same existing addon in the repository.
@@ -200,7 +200,7 @@ class BlenderAddon(Dillable):
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name}'
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'BlenderAddon'):
         """
         A strict compare method that compares the UUID (using Dillable's __eq__) and addon path.
 
@@ -596,7 +596,6 @@ class BlenderAddonManager:
             try:
                 addon_instance = addon_class(addon_path, repo_dir=repo_dir, delete_existing=delete_existing)
                 if addon_instance.verify():
-                    blog(2, 'Blender addon instance created successfully')
                     return Result(True, 'Blender addon instance created successfully', addon_instance)
                 else:
                     return Result(False, 'Error creating Blender addon instance')
@@ -649,7 +648,6 @@ class BlenderAddonManager:
         addon_path = Path(addon_path)
         result = BlenderAddonManager.detect_dev_addon_type(addon_path)
         if result:
-            blog(2, f'Creating a {result.data.__name__} instance...')
             addon_class = result.data
             try:
                 addon_instance = addon_class(addon_path)

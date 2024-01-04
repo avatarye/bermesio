@@ -1,10 +1,10 @@
 import os
 import subprocess
 
-from commons.common import Result as R, blog
+from commons.common import Result, blog
 
 
-def run_command(command, os_evn=None, expected_success_data_format=None) -> R:
+def run_command(command, os_evn=None, expected_success_data_format=None) -> Result:
     try:
         blog(1, f'Running command: {command}')
         if os_evn is not None:
@@ -13,12 +13,12 @@ def run_command(command, os_evn=None, expected_success_data_format=None) -> R:
             result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
         if result.returncode == 0:
             if expected_success_data_format is None:
-                return R(True, result.stdout, result)
+                return Result(True, result.stdout, result)
             else:
-                return R(True, result.stdout, expected_success_data_format(result.stdout))
+                return Result(True, result.stdout, expected_success_data_format(result.stdout))
         else:
             blog(4, f'Error running command: {command}, {result.stderr}')
-            return R(False, result.stderr, result)
+            return Result(False, result.stderr, result)
     except subprocess.CalledProcessError as e:
         blog(4, f'Error running command: {command}, {e}')
-        return R(False, 'Error: {e}', e)
+        return Result(False, 'Error: {e}', e)

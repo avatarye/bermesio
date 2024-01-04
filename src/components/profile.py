@@ -4,10 +4,11 @@ from pathlib import Path
 import re
 import subprocess
 
-from commons.common import Dillable, blog, SharedFunctions as SF
+from commons.common import Result, Dillable, blog, SharedFunctions as SF
 from components.blender_addon import BlenderAddon
 from components.blender_program import BlenderProgram
 from components.blender_script import BlenderScript
+from components.blender_setup import BlenderSetup
 from components.blender_venv import BlenderVenv
 from config import Config
 
@@ -15,7 +16,7 @@ from config import Config
 @dataclass
 class LaunchConfig:
     launch_type: str = 'blender'  # 'blender' or 'python'
-    if_use_custom_config: bool = True
+    if_use_custom_setup: bool = True
     if_include_venv_python_packages: bool = True
     if_include_venv_bpy_package: bool = True
     if_include_venv_dev_libraries: bool = True
@@ -29,10 +30,10 @@ class LaunchConfig:
 
 class Profile(Dillable):
 
-    def __init__(self, name, depot_profile_dir, init_dict=None):
+    def __init__(self, name, repo_profile_dir, init_dict=None):
         super().__init__()
         self.name = self._get_validated_profile_name(name)
-        self.profile_dir = self._get_validated_profile_dir(depot_profile_dir)
+        self.profile_dir = self._get_validated_profile_dir(repo_profile_dir)
         self.blender_program: BlenderProgram = init_dict.get('blender_program', None)
         self.blender_venv: BlenderVenv = init_dict.get('blender_venv', None)
         self.blender_addons: [BlenderAddon] = init_dict.get('blender_addons', [])
@@ -44,18 +45,18 @@ class Profile(Dillable):
         self.custom_startup_script_dir = None
         self.custom_additional_script_dir = None
 
-    def _get_validated_profile_name(self, name):
+    def _get_validated_profile_name(self, name) -> str:
         if SF.is_valid_name_for_path(name):
             return name
         else:
             raise ValueError(f'Invalid profile name {name}')
 
-    def _get_validated_profile_dir(self, depot_profile_dir):
-        depot_profile_dir = Path(depot_profile_dir)
-        if not depot_profile_dir.exists():
-            os.makedirs(depot_profile_dir)
-        if depot_profile_dir.exists() and depot_profile_dir.is_dir():
-            profile_dir = depot_profile_dir / f'.{self.name}'
+    def _get_validated_profile_dir(self, repo_profile_dir):
+        repo_profile_dir = Path(repo_profile_dir)
+        if not repo_profile_dir.exists():
+            os.makedirs(repo_profile_dir)
+        if repo_profile_dir.exists() and repo_profile_dir.is_dir():
+            profile_dir = repo_profile_dir / f'.{self.name}'
             if not profile_dir.exists():
                 os.makedirs(profile_dir)
             if profile_dir.exists() and profile_dir.is_dir():
@@ -63,7 +64,7 @@ class Profile(Dillable):
             else:
                 raise Exception(f'Error validating profile directory at {profile_dir}')
         else:
-            raise FileNotFoundError(f'Profile directory not found at {depot_profile_dir}')
+            raise FileNotFoundError(f'Profile directory not found at {repo_profile_dir}')
 
     def set_blender_program(self, blender_program: BlenderProgram):
         self.blender_program = blender_program

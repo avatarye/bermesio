@@ -14,7 +14,7 @@ def test_blender_venv_class():
     # This test will only succeed if Blender is installed at the given path.
     blender_venv_path = Path(TESTDATA['blender_venv|0|blender_venv_path'])
     if blender_venv_path.exists():
-        venv = BlenderVenv(blender_venv_path, store_in_pool=True)
+        venv = BlenderVenv(blender_venv_path)
         assert venv.blender_program.blender_version == Version(TESTDATA['blender_venv|0|blender_version'])
 
         # Test pth related methods
@@ -44,7 +44,9 @@ def test_blender_venv_manager_class():
     if venv_path.exists():  # Remove the test venv if it exists
         shutil.rmtree(venv_path)
     blender_program = BlenderProgram(blender_exe_path)
-    blender_venv = BlenderVenvManager.create_blender_venv(blender_program, venv_path)
+    result = BlenderVenvManager.create_blender_venv(blender_program, venv_path)
+    assert result, f'Error creating BlenderVenv: {result.message}'
+    blender_venv = result.data
     assert Path(blender_venv.venv_config['base-executable']) == blender_program.python_exe_path
     result = blender_venv.install_bpy_package()
     assert result.ok, f'Error installing bpy package: {result.message}'
