@@ -162,21 +162,6 @@ class PythonPyPIPackage(PythonPackage):
         self.is_found_on_pypi, self.pypi_info = False, None
 
 
-class PythonLibrary:
-    """
-    A class representing a Python library with the library path and the library name. The constructor takes a local
-    path to the library. This is used to represent local Python libraries that are not installed via pip.
-    """
-    def __init__(self, library_path):
-        self.library_path = Path(library_path)
-        if self.library_path.exists():
-            self.name = self.library_path.name
-
-    # TODO: look for local metadata file to get library info
-    def get_library_info(self):
-        raise NotImplementedError
-
-
 class PythonPackageSet:
     """
     A class representing a set of Python packages, which is usually installed in Python environment. It can also be
@@ -266,6 +251,15 @@ class PythonPackageSet:
         else:
             raise TypeError(f'Input {package} is not a PythonPackage.')
 
+    def get_installation_str(self) -> str:
+        """
+        Get the installation string for the package set, which is in the format of 'package_name==package_version
+        package_name==package_version ...'.
+
+        :return: a string of the installation string for the contained packages
+        """
+        return ' '.join([package.get_installation_str() for package in self.package_dict.values()])
+
     def __add__(self, other: 'PythonPackageSet') -> 'PythonPackageSet':
         """
         Get the union of two package collections, with the version of the package being the latest of the two.
@@ -303,15 +297,6 @@ class PythonPackageSet:
                 if package.version > other.package_dict[package_name].version:
                     subtracted_package_set.package_dict[package_name] = self.package_dict[package_name]
         return subtracted_package_set
-
-    def get_installation_str(self) -> str:
-        """
-        Get the installation string for the package set, which is in the format of 'package_name==package_version
-        package_name==package_version ...'.
-
-        :return: a string of the installation string for the contained packages
-        """
-        return ' '.join([package.get_installation_str() for package in self.package_dict.values()])
 
     def __str__(self):
         return ' '.join([str(package) for package in self.package_dict.values()])

@@ -184,34 +184,24 @@ class BlenderAddon(Dillable):
         """
         return self.addon_path.exists()
 
-    def compare_name(self, other: 'BlenderAddon') -> bool:
-        """
-        Compare only the name of this addon with another addon. This is often called for the purpose of replacing the
-        same existing addon in the repository.
-
-        :param other: another BlenderAddon object
-
-        :return: True if the content of this addon is the same as the other addon, otherwise False
-        """
-        if issubclass(other.__class__, BlenderAddon):
-            return self.name == other.name
-        return False
-
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name}'
 
     def __eq__(self, other: 'BlenderAddon'):
         """
-        A strict compare method that compares the UUID (using Dillable's __eq__) and addon path.
+        The equality of 2 BlenderAddon objects is determined by the addon path instead of the instance itself. If the
+        instance equality is required, use compare_uuid() from Dillable class.
 
         :param other: another BlenderAddon object
 
-        :return: True if the UUID and addon path of this addon is the same as the other addon, otherwise False
+        :return: True if the addon path of this addon is the same as the other addon, otherwise False
         """
-        return super().__eq__(other) and self.addon_path == other.addon_path
+        if issubclass(other.__class__, BlenderAddon):
+            return self.addon_path == other.addon_path
+        return False
 
     def __hash__(self):
-        return hash(self.addon_path)
+        return hash(self.addon_path.as_posix())
 
 
 class BlenderZippedAddon(BlenderAddon):
@@ -634,7 +624,7 @@ class BlenderAddonManager:
         return Result(False, f'Dev addon not found at {addon_path}.')
 
     @staticmethod
-    def create_dev_blender_addon(addon_path: str or Path) -> Result:
+    def create_blender_dev_addon(addon_path: str or Path) -> Result:
         """
         Create a dev BlenderAddon object from the addon path. It will automatically detect the dev addon type and use
         the corresponding subclass. It will return a Result object with the created BlenderAddon object in its data

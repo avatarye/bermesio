@@ -13,7 +13,6 @@ class Config:
 
     repo_path = Path(os.path.expanduser('~')) / f'.{app_name.lower()}'
 
-
     def __new__(cls, *args, **kwargs):
         """Guard against instantiation."""
         raise Exception('Config should not be instantiated.')

@@ -4,10 +4,11 @@ import shutil
 from testing_common import TESTDATA, is_dillable
 
 from components.repository import Repository
-from components.blender_addon import BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon
-from components.blender_dev_addon import BlenderDevDirectoryAddon
+from components.blender_addon import (BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon,
+                                      BlenderDevDirectoryAddon, BlenderDevSingleFileAddon)
 from components.blender_program import BlenderProgram
 from components.blender_script import BlenderStartupScript, BlenderRegularScript
+from components.blender_setup import BlenderSetup
 from components.blender_venv import BlenderVenv
 from components.python_dev_library import PythonDevLibrary
 from components.profile import Profile
@@ -18,7 +19,8 @@ def test_repository_class():
     if repo_dir.exists():
         shutil.rmtree(repo_dir)
 
-    repo = Repository(repo_dir=repo_dir)
+    # repo = Repository(repo_dir=repo_dir)
+    repo = Repository()
     assert repo.is_repository_path_ready, 'Repository path is not ready'
     assert repo.has_internet_connection, 'No internet connection'
     # Test adding Blender program

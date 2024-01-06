@@ -152,7 +152,7 @@ def test_blender_dev_directory_addon_class():
     deploy_to_dir = Path(__file__).parent / 'test_blender_addon' /'deploy'
 
     addon_path = Path(TESTDATA['blender_addon|dev_dir|path'])
-    result = BlenderAddonManager.create_dev_blender_addon(addon_path)
+    result = BlenderAddonManager.create_blender_dev_addon(addon_path)
     assert result, 'BlenderAddonManager should be able to create BlenderDevDirectoryAddon'
     addon = result.data
     assert addon.name == TESTDATA['blender_addon|dev_dir|name']
@@ -171,7 +171,7 @@ def test_blender_dev_single_file_addon_class():
     deploy_to_dir = Path(__file__).parent / 'test_blender_addon' /'deploy'
 
     addon_path = Path(TESTDATA['blender_addon|single_file|path'])
-    result = BlenderAddonManager.create_dev_blender_addon(addon_path)
+    result = BlenderAddonManager.create_blender_dev_addon(addon_path)
     assert result, 'BlenderAddonManager should be able to create BlenderDevSingleFileAddon'
     addon = result.data
     assert addon.name == TESTDATA['blender_addon|single_file|name']

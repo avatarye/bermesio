@@ -11,6 +11,14 @@ def create_venv(blender_path, venv_path):
     blender_venv.install_bpy_package()
     blender_venv.install_site_pacakge(PythonPyPIPackage('pyautogen'))
 
+def create_blender_setup():
+    creation_dict = {
+
+    }
+
+def create_repo():
+    creation_dict = {
+    }
 
 if __name__ == '__main__':
     blender_path = Path(r'c:\TechDepot\AvatarTools\Blender\Launcher\stable\blender-3.6.7-windows-x64\blender.exe')

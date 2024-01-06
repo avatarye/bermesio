@@ -13,7 +13,7 @@ class BlenderScript(Dillable):
 
     name = 'unknown_script'
 
-    regular_script_deploy_subdir = f'{Config.app_name.lower()}_scripts'
+    regular_script_deploy_subdir = f'{Config.app_name.lower()}_scripts'  # must be the same as BlenderSetup class's
     startup_script_deploy_subdir = 'startup'
 
     def __init__(self, script_path, repo_dir=None, delete_existing=False):
@@ -136,11 +136,21 @@ class BlenderScript(Dillable):
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name}'
 
-    def __eq__(self, other):
-        return super().__eq__(other) and self.script_path == other.script_path
+    def __eq__(self, other: 'BlenderScript'):
+        """
+        The equality of 2 BlenderScript objects is determined by the addon path instead of the instance itself. If the
+        instance equality is required, use compare_uuid() from Dillable class.
+
+        :param other: another BlenderScript object
+
+        :return: True if the Blender script path of this instance is the same as the other instance, otherwise False
+        """
+        if issubclass(other.__class__, BlenderScript):
+            return self.script_path == other.script_path
+        return False
 
     def __hash__(self):
-        return hash(self.script_path)
+        return hash(self.script_path.as_posix())
 
 
 class BlenderRegularScript(BlenderScript):

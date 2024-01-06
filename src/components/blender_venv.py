@@ -21,20 +21,24 @@ class BlenderVenv(Dillable):
 
     # region Init
 
+    # Site-packages directory in venv
     venv_site_packages_path = Path('Lib/site-packages')
+    # bpy package directory in venv
     venv_bpy_package_path = Path('Lib/bpy_package')
-    venv_local_libraries_paths = [Path('Lib/local_libs')]
+    # Dev libraries directory in venv
+    venv_dev_libraries_path = Path('Lib/dev_libraries')
+    # Path for the pth file managed by this venv
     venv_managed_packages_pth_path = Path(f'Lib/site-packages/_{Config.app_name.lower()}_managed_packages.pth')
 
     def __init__(self, blender_venv_path):
         super().__init__()
         self.venv_path = Path(blender_venv_path)
         if self.venv_path.exists():
-            self.venv_config = self._get_blender_venv_config()
-            self.blender_program = self._get_blender_program()
-            self.site_packages = self._get_site_packages()
-            self.dev_libraries = self._get_dev_libraries()
-            self.bpy_package = self._get_bpy_package()
+            self.name = self.venv_path.name
+            self.venv_config: dict = self._get_blender_venv_config()
+            self.blender_program: BlenderProgram = self._get_blender_program()
+            self.site_packages: PythonPackageSet = self._get_site_packages()
+            self.bpy_package: PythonLocalPackage = self._get_bpy_package()
         else:
             raise FileNotFoundError(f'Blender virtual environment not found at {self.venv_path}')
 
@@ -87,9 +91,6 @@ class BlenderVenv(Dillable):
         venv_package_path = self.venv_path / self.venv_site_packages_path
         return PythonPackageSet(venv_package_path) if venv_package_path.exists() else None
 
-    def _get_dev_libraries(self) -> PythonPackageSet:
-        return PythonPackageSet('')
-
     def _get_bpy_package(self) -> PythonLocalPackage or None:
         """
         Get the bpy Python package installed in the virtual environment.
@@ -103,8 +104,8 @@ class BlenderVenv(Dillable):
 
     # region Configure venv
 
-    def _install_packages(self, subject: PythonPyPIPackage or PythonPackageSet, no_deps: bool =False,
-                          installation_path: Path =None) -> Result:
+    def _install_packages(self, subject: PythonPyPIPackage or PythonPackageSet, no_deps: bool = False,
+                          installation_path: Path = None) -> Result:
         """
         Install the given PythonPyPIPackage or PythonPackageSet object in the virtual environment.
 
@@ -129,7 +130,7 @@ class BlenderVenv(Dillable):
             # command = f'source {activate_script} && pip install {subject.get_installation_str()}'
         return run_command(command)
 
-    def install_bpy_package(self, force: bool =False) -> Result:
+    def install_bpy_package(self, force: bool = False) -> Result:
         """
         Install the bpy package in a dedicated path in the virtual environment. This is to avoid the bpy package being
         installed in the site-packages directory, which may cause conflicts with Blender's own Python environment.
@@ -181,7 +182,22 @@ class BlenderVenv(Dillable):
                 return Result(False, f'Error installing package(s) {error_package_names}')
         return result
 
-    def _add_package_pth_file(self, pth_path: Path, package_path: Path) -> Result:
+    def install_dev_library(self, subject: PythonDevLibrary) -> Result:
+        """
+        Install the given PythonDevLibrary object in the virtual environment's dev library dir.
+
+        :param subject: a PythonDevLibrary object
+
+        :return: a Result object
+        """
+        if subject.verify():
+            result = subject.deploy(self.venv_path / self.venv_dev_libraries_path)
+            return result
+        else:
+            return Result(False, f'The development library {subject.name} is not valid')
+
+    @staticmethod
+    def _add_package_dir_to_pth_file(pth_path: Path, package_path: Path) -> Result:
         """
         Add a line to the given pth file to append the given package path to sys.path. This can be used to append the
         input package to the target Python environment's sys.path.
@@ -214,7 +230,7 @@ class BlenderVenv(Dillable):
         :return: a Result object
         """
         pth_path = self.venv_path / self.venv_managed_packages_pth_path
-        return self._add_package_pth_file(pth_path, self.venv_bpy_package_path)
+        return self._add_package_dir_to_pth_file(pth_path, self.venv_bpy_package_path)
 
     def add_bpy_package_to_blender_pth(self) -> Result:
         """
@@ -225,7 +241,7 @@ class BlenderVenv(Dillable):
         :return: a Result object
         """
         pth_path = self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name
-        return self._add_package_pth_file(pth_path, self.venv_path / self.venv_bpy_package_path)
+        return self._add_package_dir_to_pth_file(pth_path, self.venv_path / self.venv_bpy_package_path)
 
     def add_site_packages_to_blender_pth(self) -> Result:
         """
@@ -234,24 +250,25 @@ class BlenderVenv(Dillable):
         :return: a Result object
         """
         pth_path = self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name
-        return self._add_package_pth_file(pth_path, self.venv_path / self.venv_site_packages_path)
+        return self._add_package_dir_to_pth_file(pth_path, self.venv_path / self.venv_site_packages_path)
 
-    def _add_dev_libraries_to_pth(self, pth_path: Path) -> Result:
-        results = []
-        for local_library_path in self.venv_local_libraries_paths:
-            results.append(self._add_package_pth_file(pth_path, local_library_path))
-        if all([result.ok for result in results]):
-            return Result(True, f'Local libraries paths added to {self.venv_managed_packages_pth_path}')
-        else:
-            return Result(False, f'Error adding local libraries paths to {self.venv_managed_packages_pth_path}')
+    def add_dev_libraries_to_venv_pth(self) -> Result:
+        """
+        Add a line to the venv pth file to append the dev libraries path to this venv's sys.path.
 
-    def add_local_libraries_to_venv_pth(self) -> Result:
+        :return: a Result object
+        """
         pth_path = self.venv_path / self.venv_managed_packages_pth_path
-        return self._add_dev_libraries_to_pth(pth_path)
+        return self._add_package_dir_to_pth_file(pth_path, self.venv_dev_libraries_path)
 
-    def add_local_libraries_to_blender_pth(self) -> Result:
+    def add_dev_libraries_to_blender_pth(self) -> Result:
+        """
+        Add a line to the associated Blender's pth file to append the dev libraries path to Blender's sys.path.
+
+        :return: a Result object
+        """
         pth_path = self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name
-        return self._add_dev_libraries_to_pth(pth_path)
+        return self._add_package_dir_to_pth_file(pth_path, self.venv_path / self.venv_dev_libraries_path)
 
     def remove_venv_pth(self) -> Result:
         """
@@ -280,24 +297,24 @@ class BlenderVenv(Dillable):
         """
         return self.venv_path.exists() and self.blender_program.verify()
 
-    def compare_source(self, other: 'BlenderVenv') -> bool:
+    def __str__(self):
+        return f'BlenderVenv: {self.name} ({self.blender_program})'
+
+    def __eq__(self, other: 'BlenderVenv'):
         """
-        Compare if the Blender virtual environment paths of two BlenderVenv objects are the same.
+        The equality of 2 BlenderVenv objects is determined by the addon path instead of the instance itself. If the
+        instance equality is required, use compare_uuid() from Dillable class.
 
         :param other: another BlenderVenv object
 
-        :return: True if the Blender virtual environment paths are the same, otherwise False
+        :return: True if the Blender venv path of this instance is the same as the other instance, otherwise False
         """
-        return self.venv_path == other.venv_path
-
-    def __str__(self):
-        return f'BlenderVenv: {self.venv_path.name} ({self.blender_program})'
-
-    def __eq__(self, other):
-        return super().__eq__(other) and self.venv_path == other.venv_path
+        if issubclass(other.__class__, BlenderVenv):
+            return self.venv_path == other.venv_path
+        return False
 
     def __hash__(self):
-        return hash(self.venv_path)
+        return hash(self.venv_path.as_posix())
 
 
 class BlenderVenvManager:

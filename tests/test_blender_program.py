@@ -15,7 +15,7 @@ def test_blender_program_class():
     assert blender_program.python_exe_path == python_exe_path
     assert blender_program.python_version == Version(TESTDATA['blender_program|0|python_version'])
     assert blender_program.blender_version == Version(TESTDATA['blender_program|0|blender_version'])
-    assert len(blender_program.python_packages.package_dict) == 14
+    assert len(blender_program.python_packages.package_dict) == 12
 
     # Test dill-ability
     assert is_dillable(blender_program), 'BlenderProgram should be picklable'
@@ -30,7 +30,7 @@ def test_blender_program_class():
     assert restored.python_exe_path == python_exe_path
     assert restored.python_version == Version(TESTDATA['blender_program|0|python_version'])
     assert restored.blender_version == Version(TESTDATA['blender_program|0|blender_version'])
-    assert len(restored.python_packages.package_dict) == 14
+    assert len(restored.python_packages.package_dict) == 12
     blender_program.dill_save_path.unlink()
 
 

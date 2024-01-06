@@ -51,20 +51,23 @@ class Profile(Dillable):
         else:
             raise ValueError(f'Invalid profile name {name}')
 
-    def _get_validated_profile_dir(self, repo_profile_dir):
+    def _get_validated_profile_dir(self, repo_profile_dir: str or Path) -> Path:
+        """
+        Validate the profile directory inside the repo profile dir. If it not exists, create it.
+
+        :param repo_profile_dir: a str or Path object of the path to the repo profile directory
+
+        :return: a Path object of the validated profile directory
+        """
         repo_profile_dir = Path(repo_profile_dir)
-        if not repo_profile_dir.exists():
-            os.makedirs(repo_profile_dir)
-        if repo_profile_dir.exists() and repo_profile_dir.is_dir():
-            profile_dir = repo_profile_dir / f'.{self.name}'
-            if not profile_dir.exists():
-                os.makedirs(profile_dir)
-            if profile_dir.exists() and profile_dir.is_dir():
-                return profile_dir
-            else:
-                raise Exception(f'Error validating profile directory at {profile_dir}')
-        else:
-            raise FileNotFoundError(f'Profile directory not found at {repo_profile_dir}')
+        result = SF.create_target_dir(repo_profile_dir)
+        if not result:
+            raise Exception(f'Error validating profile directory in the repository at {repo_profile_dir}')
+        profile_dir = repo_profile_dir / f'.{self.name}'
+        result = SF.create_target_dir(profile_dir)
+        if not result:
+            raise Exception(f'Error validating the profile directory at {profile_dir}')
+        return profile_dir
 
     def set_blender_program(self, blender_program: BlenderProgram):
         self.blender_program = blender_program
@@ -163,7 +166,30 @@ class Profile(Dillable):
     def __str__(self):
         return f'Profile: {self.name}'
 
-    def __eq__(self, other):
-        return super().__eq__(other) and self.profile_dir == other.profile_dir
+    def __eq__(self, other: 'Profile'):
+        """
+        The equality of 2 Profile objects is determined by the addon path instead of the instance itself. If the
+        instance equality is required, use compare_uuid() from Dillable class.
+
+        :param other: another Profile object
+
+        :return: True if the Profile path of this instance is the same as the other instance, otherwise False
+        """
+        if issubclass(other.__class__, Profile):
+            return self.profile_dir == other.profile_dir
+        return False
+
+    def __hash__(self):
+        return hash(self.profile_dir.as_posix())
+
+
+class ProfileManager:
+
+    def __new__(cls, *args, **kwargs):
+        raise NotImplementedError
+
+    @classmethod
+    def create_profile(cls, name, repo_profile_dir, init_dict=None) -> Profile:
+        return Profile(name, repo_profile_dir, init_dict=init_dict)
 
 r'mklink "c:\TechDepot\AvatarTools\Blender\Launcher\stable\blender-3.6.7-windows-x64\3.6\scripts\addons\bermesio_cone_creator.py" "c:\TechDepot\Github\bermesio\_data\test_data\dev\bermesio_cone_creator.py'

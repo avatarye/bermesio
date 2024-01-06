@@ -7,7 +7,7 @@ from testing_common import TESTDATA, is_dillable
 
 from components.blender_program import BlenderProgram
 from components.blender_venv import BlenderVenv, BlenderVenvManager
-from components.python_package import PythonPyPIPackage, PythonLocalPackage, PythonLibrary, PythonPackageSet
+from components.python_package import PythonPyPIPackage, PythonPackageSet
 
 
 def test_blender_venv_class():
@@ -18,19 +18,23 @@ def test_blender_venv_class():
         assert venv.blender_program.blender_version == Version(TESTDATA['blender_venv|0|blender_version'])
 
         # Test pth related methods
-        pth_path = venv.venv_path / venv.venv_managed_packages_pth_path
+        venv_pth_path = venv.venv_path / venv.venv_managed_packages_pth_path
         venv.remove_venv_pth()
-        assert not pth_path.exists(), 'BlenderVenv.remove_venv_pth() should remove the venv pth file'
-        venv.add_bpy_package_to_venv_pth()
-        assert pth_path.exists(), 'BlenderVenv.add_bpy_package_to_venv_pth() should create the venv pth file'
-        pth_path = venv.blender_program.python_site_pacakge_dir / venv.venv_managed_packages_pth_path.name
+        assert not venv_pth_path.exists(), 'BlenderVenv.remove_venv_pth() should remove the venv pth file'
+        blender_pth_path = venv.blender_program.python_site_pacakge_dir / venv.venv_managed_packages_pth_path.name
         venv.remove_blender_pth()
-        assert not pth_path.exists(), 'BlenderVenv.remove_blender_pth() should remove the blender pth file'
+        assert not blender_pth_path.exists(), 'BlenderVenv.remove_blender_pth() should remove the blender pth file'
+
+        venv.add_bpy_package_to_venv_pth()
+        venv.add_dev_libraries_to_venv_pth()
+        assert venv_pth_path.exists(), 'BlenderVenv.add_bpy_package_to_venv_pth() should create the venv pth file'
         venv.add_bpy_package_to_blender_pth()
         venv.add_site_packages_to_blender_pth()
-        assert pth_path.exists(), 'BlenderVenv.add_bpy_package_to_blender_pth() should create the blender pth file'
-        # venv.add_local_libraries_to_venv_pth()  TODO: Test when local libraries are implemented
-        # venv.add_local_libraries_to_blender_pth()
+        venv.add_dev_libraries_to_blender_pth()
+        assert blender_pth_path.exists(), 'BlenderVenv.add_bpy_package_to_blender_pth() should create the blender pth file'
+
+        venv.remove_venv_pth()
+        venv.remove_blender_pth()
 
         # Test dill-ability
         assert is_dillable(venv), 'BlenderVenv should be picklable'

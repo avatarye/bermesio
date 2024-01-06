@@ -82,25 +82,24 @@ class PythonDevLibrary(Dillable):
         else:
             return Result(False, f'Development library path {self.library_path} does not exist.')
 
-    def compare_source(self, other: 'PythonDevLibrary') -> bool:
-        """
-        Compare the source code of the development library with another development library based on the library path.
+    def __str__(self):
+        return f'{self.__class__.__name__}: {self.name}'
 
-        :param other: a PythonDevLibrary object to compare with
-        :return: a bool indicating whether the source code of the development library is the same as the other
+    def __eq__(self, other: 'PythonDevLibrary'):
+        """
+        The equality of 2 PythonDevLibrary objects is determined by the addon path instead of the instance itself. If the
+        instance equality is required, use compare_uuid() from Dillable class.
+
+        :param other: another PythonDevLibrary object
+
+        :return: True if the libray path of this instance is the same as the other instance, otherwise False
         """
         if issubclass(other.__class__, PythonDevLibrary):
             return self.library_path == other.library_path
         return False
 
-    def __str__(self):
-        return f'{self.__class__.__name__}: {self.name}'
-
-    def __eq__(self, other: 'PythonDevLibrary'):
-        return super().__eq__(other) and self.library_path == other.library_path
-
     def __hash__(self):
-        return hash(self.library_path)
+        return hash(self.library_path.as_posix())
 
 
 class PythonDevLibraryManager:
