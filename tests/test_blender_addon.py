@@ -206,5 +206,3 @@ def test_blender_addon_manager_class():
     assert result and result.data == BlenderDevDirectoryAddon, 'detect_addon_type should return BlenderDevDirectoryAddon'
     result = BlenderAddonManager.detect_dev_addon_type(Path(TESTDATA['blender_addon|single_file|path']))
     assert result and result.data == BlenderDevSingleFileAddon, 'detect_addon_type should return BlenderDevSingleFileAddon'
-
-

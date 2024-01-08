@@ -5,8 +5,8 @@ from packaging.version import Version
 
 from testing_common import TESTDATA, is_dillable
 
-from components.blender_program import BlenderProgram
-from components.blender_venv import BlenderVenv, BlenderVenvManager
+from components.blender_program import BlenderProgramManager
+from components.blender_venv import BlenderVenvManager
 from components.python_package import PythonPyPIPackage, PythonPackageSet
 
 
@@ -14,7 +14,9 @@ def test_blender_venv_class():
     # This test will only succeed if Blender is installed at the given path.
     blender_venv_path = Path(TESTDATA['blender_venv|0|blender_venv_path'])
     if blender_venv_path.exists():
-        venv = BlenderVenv(blender_venv_path)
+        result = BlenderVenvManager.create_blender_venv(blender_venv_path)
+        assert result, f'Error creating BlenderVenv: {result.message}'
+        venv = result.data
         assert venv.blender_program.blender_version == Version(TESTDATA['blender_venv|0|blender_version'])
 
         # Test pth related methods
@@ -47,8 +49,10 @@ def test_blender_venv_manager_class():
     venv_path = Path(__file__).parent / 'test_blender_venv'
     if venv_path.exists():  # Remove the test venv if it exists
         shutil.rmtree(venv_path)
-    blender_program = BlenderProgram(blender_exe_path)
-    result = BlenderVenvManager.create_blender_venv(blender_program, venv_path)
+    result = BlenderProgramManager.create_blender_program(blender_exe_path)
+    assert result, f'Error creating BlenderProgram: {result.message}'
+    blender_program = result.data
+    result = BlenderVenvManager.create_venv_from_blender_program(blender_program, venv_path)
     assert result, f'Error creating BlenderVenv: {result.message}'
     blender_venv = result.data
     assert Path(blender_venv.venv_config['base-executable']) == blender_program.python_exe_path

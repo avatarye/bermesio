@@ -3,7 +3,7 @@ from pathlib import Path
 
 from testing_common import TESTDATA, is_dillable
 
-from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonLibrary, PythonPackageSet
+from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonPackageSet
 
 
 def test_python_local_package_class():
@@ -29,18 +29,11 @@ def test_python_pypi_pacakge_class():
     assert is_dillable(pkg), 'PythonPackage should be picklable'
 
 
-def test_python_library_class():
-    lib = PythonLibrary(r'C:\TechDepot\Github\bermesio')
-    assert lib.name == 'bermesio'
-
-    assert is_dillable(lib), 'PythonLibrary should be picklable'
-
-
 def test_python_package_set_class():
     # Test PythonPackageSet with local package path
     venv_packagee_path = Path(TESTDATA['blender_venv|0|site_packages_path'])
     venv_packages = PythonPackageSet(venv_packagee_path)
-    assert len(venv_packages.package_dict.values()) == 12
+    assert len(venv_packages.package_dict.values()) == 13
 
     # Test PythonPackageSet with installation string
     b4_packages_str = """

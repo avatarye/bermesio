@@ -1,9 +1,8 @@
 from pathlib import Path
 
-from packaging.version import Version
 import shutil
 
-from components.python_dev_library import PythonDevLibrary, PythonDevLibraryManager
+from components.python_dev_library import PythonDevLibraryManager
 
 from testing_common import TESTDATA, is_dillable
 

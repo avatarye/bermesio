@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -187,6 +188,7 @@ class Dillable:
 
     def __init__(self):
         self.saved_app_version: packaging.version.Version = Config.app_version
+        self._hash = None
         self.uuid = uuid.uuid4().hex
         self.dill_extension = '.dil'  # This will be overriden by subclasses
         self.dill_save_path = None
@@ -201,7 +203,7 @@ class Dillable:
 
         :return: a Result object
         """
-        self.dill_save_path = Path(save_dir) / f'{hash(self)}{self.__class__.dill_extension}'
+        self.dill_save_path = Path(save_dir) / f'{str(hash(self)).zfill(16)}{self.__class__.dill_extension}'
         with open(self.dill_save_path, 'wb') as pickle_file:
             self.saved_app_version = Config.app_version
             try:
@@ -249,6 +251,15 @@ class Dillable:
     def compare_uuid(self, other: 'Dillable') -> bool:
         """Compare the UUID of the object with another Dillable object."""
         return self.uuid == other.uuid
+
+    @staticmethod
+    def get_stable_hash(string: str) -> int:
+        """
+        Get a stable hash of the object which will be used to compare again sub-repo pool. The hash will be a
+        representation of a core string of the object, which is usually the path of the associated data. Due to the
+        integer overflow issue, the hash is sliced every 5 characters and converted to integer.
+        """
+        return int(hashlib.sha256(string.encode()).hexdigest()[::5], 16)
 
 # endregion
 
@@ -341,7 +352,7 @@ class SharedFunctions:
             if not result.ok:
                 return result
         # Ensure target path is ready
-        if parent_path.exists() and parent_path.is_dir():
+        if parent_path.exists():
             if target_path.exists() and delete_existing:
                 result = SharedFunctions.remove_target_path(target_path)
                 if not result.ok:

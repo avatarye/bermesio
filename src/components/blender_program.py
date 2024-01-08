@@ -14,6 +14,9 @@ class BlenderProgram(Dillable):
     A class representing a Blender program with necessary information, including the Blender version, the Python
     version, and the Python packages.
     """
+
+    # region Initialization
+
     def __init__(self, blender_exe_path: str or Path, name: str = None):
         """
         Initialize a BlenderProgram object based on an existing Blender executable path, which is typically located
@@ -23,20 +26,7 @@ class BlenderProgram(Dillable):
         :param name: a custom name for the Blender program, typically from the user input
         """
         super().__init__()
-        self.blender_exe_path = Path(blender_exe_path)
-        if self.blender_exe_path.exists():
-            self.blender_version = self._get_blender_version()
-            self.blender_dir = self._get_blender_dir()
-            self.python_exe_path, self.python_version = self._get_python_exe_path_version()
-            self.python_site_pacakge_dir = self._get_python_site_package_dir()
-            self.python_packages = self._get_python_packages()
-            # If no name is given, use the default name
-            if not name:
-                self.name = f'Blender_{self.blender_version}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            else:
-                self.name = name
-        else:
-            raise FileNotFoundError(f'Blender executable not found at {self.blender_exe_path}')
+        self.init_params = {'blender_exe_path': blender_exe_path, 'name': name}
 
     def _get_blender_version(self) -> packaging.version.Version:
         """
@@ -81,7 +71,7 @@ class BlenderProgram(Dillable):
                 python_version = [line for line in stdout.split('\n') if line.startswith('version:')][0].split(' ')[1]
                 return Path(python_exe_path), packaging.version.parse(python_version)
             except IndexError:
-                raise Exception(f'Error getting Blender Python exe path and version.')
+                raise Exception(f'Error getting Blender Python exe path and version: {stdout}')
         else:
             raise Exception(f'Error getting Blender Python exe path and version: {result.message}')
 
@@ -109,6 +99,36 @@ class BlenderProgram(Dillable):
         else:
             raise Exception(f'Error getting Blender Python packages: {result.message}')
 
+    def create_instance(self) -> Result:
+        """
+        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
+        the manager which handles the result returned by this method. Returning a Result object is the main reason for
+        using this method instead of __init__.
+
+        :return: a Result object indicating if the initialization is successful and the message generated during the
+                 initialization
+        """
+        blender_exe_path = self.init_params['blender_exe_path']
+        name = self.init_params['name']
+        self.blender_exe_path = Path(blender_exe_path)
+        if self.blender_exe_path.exists():
+            try:
+                self.blender_version = self._get_blender_version()
+                self.blender_dir = self._get_blender_dir()
+                self.python_exe_path, self.python_version = self._get_python_exe_path_version()
+                self.python_site_pacakge_dir = self._get_python_site_package_dir()
+                self.python_packages = self._get_python_packages()
+            except Exception as e:
+                return Result(False, f'Error creating Blender program instance: {e}')
+            # If no name is given, use the default name
+            if not name:
+                self.name = f'Blender_{self.blender_version}_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            else:
+                self.name = name
+            return Result(True, f'Blender program instance created successfully.', self)
+        else:
+            return Result(False, f'Blender executable not found at {self.blender_exe_path}')
+
     def verify(self) -> bool:
         """
         Verify if the Blender executable is valid. This is often called after restored from a dilled object.
@@ -134,7 +154,9 @@ class BlenderProgram(Dillable):
         return False
 
     def __hash__(self):
-        return hash(self.blender_exe_path.as_posix())
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self.blender_exe_path.as_posix())
+        return self._hash
 
 
 class BlenderProgramManager:
@@ -157,11 +179,5 @@ class BlenderProgramManager:
 
         :return: a Result object with the BlenderProgram object as the data
         """
-        blender_exe_path = Path(blender_exe_path)
-        try:
-            blender_program = BlenderProgram(blender_exe_path, name)
-            if blender_program.verify():
-                blog(2, 'Blender program instance created successfully.')
-                return Result(True, 'Blender program instance created successfully.', blender_program)
-        except Exception as e:
-            return Result(False, f'Error creating Blender program instance: {e}', e)
+        blog(2, 'Creating Blender program instance...')
+        return BlenderProgram(blender_exe_path, name).create_instance()

@@ -26,13 +26,7 @@ class BlenderScript(Dillable):
         :param delete_existing: a flag indicating whether to delete the existing script at the repo_dir
         """
         super().__init__()
-        self.script_path = Path(script_path)
-        if script_path.exists() and script_path.is_file() and script_path.suffix == '.py':
-            self.name = self.script_path.stem
-            if repo_dir:
-                self._store_in_repo(repo_dir, delete_existing=delete_existing)
-        else:
-            raise FileNotFoundError(f'Valid Blender script not found at {self.script_path}')
+        self.init_params = {'script_path': script_path, 'repo_dir': repo_dir, 'delete_existing': delete_existing}
 
     def _store_in_repo(self, repo_dir, delete_existing=False) -> Result:
         """
@@ -58,6 +52,29 @@ class BlenderScript(Dillable):
                 return Result(True)
         else:
             return Result(False, f'Error copying script to {repo_script_path}')
+
+    def create_instance(self) -> Result:
+        """
+        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
+        the manager which handles the result returned by this method. Returning a Result object is the main reason for
+        using this method instead of __init__.
+
+        :return: a Result object indicating if the initialization is successful and the message generated during the
+                 initialization
+        """
+        script_path = self.init_params['script_path']
+        repo_dir = self.init_params['repo_dir']
+        delete_existing = self.init_params['delete_existing']
+        self.script_path = Path(script_path)
+        if script_path.exists() and script_path.is_file() and script_path.suffix == '.py':
+            self.name = self.script_path.stem
+            if repo_dir:
+                result = self._store_in_repo(repo_dir, delete_existing=delete_existing)
+                if not result:
+                    return result
+            return Result(True, f'Blender script instance created successfully.', self)
+        else:
+            return Result(False, f'Valid Blender script not found at {script_path}')
 
     def deploy(self, deploy_dir: str or Path, delete_existing=False) -> Result:
         """
@@ -150,7 +167,9 @@ class BlenderScript(Dillable):
         return False
 
     def __hash__(self):
-        return hash(self.script_path.as_posix())
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self.script_path.as_posix())
+        return self._hash
 
 
 class BlenderRegularScript(BlenderScript):
@@ -228,13 +247,8 @@ class BlenderScriptManager:
             script_class = BlenderStartupScript
         else:
             return Result(False, f'Invalid script type {script_type}')
-        try:
-            script_instance = script_class(script_path, repo_dir=repo_dir, delete_existing=delete_existing)
-            if script_instance.verify():
-                blog(2, 'Blender script instance created successfully')
-                return Result(True, 'Blender script instance created successfully', script_instance)
-        except Exception as e:
-            return Result(False, f'Error creating Blender script instance: {e}', e)
+        blog(2, 'Creating a Blender script instance...')
+        return script_class(script_path, repo_dir=repo_dir, delete_existing=delete_existing).create_instance()
 
     @staticmethod
     def create_blender_dev_script(script_path: str or Path, script_type: str) -> Result:
@@ -255,10 +269,5 @@ class BlenderScriptManager:
             script_class = BlenderDevStartupScript
         else:
             return Result(False, f'Invalid development script type {script_type}')
-        try:
-            script_instance = script_class(script_path)
-            if script_instance.verify():
-                blog(2, 'Blender development script instance created successfully')
-                return Result(True, 'Blender development script instance created successfully', script_instance)
-        except Exception as e:
-            return Result(False, f'Error creating Blender development script instance: {e}', e)
+        blog(2, 'Creating a Blender development script instance...')
+        return script_class(script_path).create_instance()

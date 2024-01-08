@@ -180,7 +180,9 @@ class Profile(Dillable):
         return False
 
     def __hash__(self):
-        return hash(self.profile_dir.as_posix())
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self.profile_dir.as_posix())
+        return self._hash
 
 
 class ProfileManager:

@@ -11,7 +11,9 @@ def test_blender_regular_script_class():
     copy_to_dir = Path(__file__).parent / 'test_blender_scripts'
     deploy_to_dir = Path(__file__).parent / 'test_blender_scripts' / 'deploy'
     script_path = Path(TESTDATA['blender_script|regular|0'])
-    script = BlenderRegularScript(script_path, repo_dir=copy_to_dir)
+    result = BlenderScriptManager.create_blender_script(script_path, 'regular', repo_dir=copy_to_dir)
+    assert result, 'BlenderScriptManager should be able to create a BlenderRegularScript object'
+    script = result.data
     assert script.name == script_path.stem, 'Script name should be the same as the file name'
     copied_script = copy_to_dir / script_path.name
     assert copied_script.exists(), 'Startup script should be copied to repo dir'
@@ -28,7 +30,9 @@ def test_blender_startup_script_class():
     copy_to_dir = Path(__file__).parent / 'test_blender_scripts'
     deploy_to_dir = Path(__file__).parent / 'test_blender_scripts' / 'deploy'
     script_path = Path(TESTDATA['blender_script|startup|0'])
-    script = BlenderStartupScript(script_path, repo_dir=copy_to_dir)
+    result = BlenderScriptManager.create_blender_script(script_path, 'startup', repo_dir=copy_to_dir)
+    assert result, 'BlenderScriptManager should be able to create a BlenderStartupScript object'
+    script = result.data
     assert script.name == script_path.stem, 'Script name should be the same as the file name'
     copied_script = copy_to_dir / script_path.name
     assert copied_script.exists(), 'Startup script should be copied to repo dir'
@@ -44,7 +48,9 @@ def test_blender_dev_regular_script_class():
     copy_to_dir = Path(__file__).parent / 'test_blender_scripts'
     deploy_to_dir = Path(__file__).parent / 'test_blender_scripts' / 'deploy'
     script_path = Path(TESTDATA['blender_script|regular|0'])
-    script = BlenderDevRegularScript(script_path)
+    result = BlenderScriptManager.create_blender_dev_script(script_path, 'regular')
+    assert result, 'BlenderScriptManager should be able to create a BlenderDevRegularScript object'
+    script = result.data
     assert script.name == script_path.stem, 'Script name should be the same as the file name'
     script.deploy(deploy_to_dir)
     deployed_path = deploy_to_dir / script.regular_script_deploy_subdir / script_path.name
@@ -58,7 +64,9 @@ def test_blender_dev_startup_script_class():
     copy_to_dir = Path(__file__).parent / 'test_blender_scripts'
     deploy_to_dir = Path(__file__).parent / 'test_blender_scripts' / 'deploy'
     script_path = Path(TESTDATA['blender_script|startup|0'])
-    script = BlenderDevStartupScript(script_path)
+    result = BlenderScriptManager.create_blender_dev_script(script_path, 'startup')
+    assert result, 'BlenderScriptManager should be able to create a BlenderDevStartupScript object'
+    script = result.data
     assert script.name == script_path.stem, 'Script name should be the same as the file name'
     script.deploy(deploy_to_dir)
     deployed_path = deploy_to_dir / script.startup_script_deploy_subdir / script_path.name
@@ -67,13 +75,3 @@ def test_blender_dev_startup_script_class():
 
     if copy_to_dir.exists():
         shutil.rmtree(copy_to_dir)
-
-def test_blender_script_manager():
-    script = BlenderScriptManager.create_blender_script(Path(TESTDATA['blender_script|regular|0']), 'regular')
-    assert isinstance(script.data, BlenderRegularScript), 'Should create BlenderRegularScript'
-    script = BlenderScriptManager.create_blender_script(Path(TESTDATA['blender_script|startup|0']), 'startup')
-    assert isinstance(script.data, BlenderStartupScript), 'Should create BlenderStartupScript'
-    script = BlenderScriptManager.create_blender_dev_script(Path(TESTDATA['blender_script|regular|0']), 'regular')
-    assert isinstance(script.data, BlenderDevRegularScript), 'Should create BlenderDevRegularScript'
-    script = BlenderScriptManager.create_blender_dev_script(Path(TESTDATA['blender_script|startup|0']), 'startup')
-    assert isinstance(script.data, BlenderDevStartupScript), 'Should create BlenderDevStartupScript'

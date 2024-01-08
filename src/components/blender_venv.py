@@ -5,9 +5,9 @@ import shutil
 
 import virtualenv
 
-from commons.common import Result, Dillable, SharedFunctions as SF
+from commons.common import Result, blog, Dillable, SharedFunctions as SF
 from commons.command import run_command
-from components.blender_program import BlenderProgram
+from components.blender_program import BlenderProgram, BlenderProgramManager
 from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonPackageSet
 from components.python_dev_library import PythonDevLibrary
 from config import Config
@@ -32,15 +32,7 @@ class BlenderVenv(Dillable):
 
     def __init__(self, blender_venv_path):
         super().__init__()
-        self.venv_path = Path(blender_venv_path)
-        if self.venv_path.exists():
-            self.name = self.venv_path.name
-            self.venv_config: dict = self._get_blender_venv_config()
-            self.blender_program: BlenderProgram = self._get_blender_program()
-            self.site_packages: PythonPackageSet = self._get_site_packages()
-            self.bpy_package: PythonLocalPackage = self._get_bpy_package()
-        else:
-            raise FileNotFoundError(f'Blender virtual environment not found at {self.venv_path}')
+        self.init_params = {'blender_venv_path': blender_venv_path}
 
     def _get_blender_venv_config(self) -> dict:
         """
@@ -74,8 +66,12 @@ class BlenderVenv(Dillable):
                     blender_exe_path = blender_python_path.parent.parent.parent.parent / 'blender.exe'
                 else:
                     raise NotImplementedError  # TODO: Implement for Linux and Mac, which may use different paths.
-                blender_program = BlenderProgram(blender_exe_path)
-                return blender_program
+                result = BlenderProgramManager.create_blender_program(blender_exe_path)
+                if result:
+                    return result.data
+                else:
+                    raise Exception(f'Error getting Blender program from Blender virtual environment config file: '
+                                    f'{result.message}')
             except Exception as e:
                 raise Exception(f'Error getting Blender program from Blender virtual environment config file: {e}')
         else:
@@ -99,6 +95,30 @@ class BlenderVenv(Dillable):
         """
         bpy_package_path = self.venv_path / self.venv_bpy_package_path / 'bpy'
         return PythonLocalPackage(bpy_package_path) if bpy_package_path.exists() else None
+
+    def create_instance(self) -> Result:
+        """
+        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
+        the manager which handles the result returned by this method. Returning a Result object is the main reason for
+        using this method instead of __init__.
+
+        :return: a Result object indicating if the initialization is successful and the message generated during the
+                 initialization
+        """
+        blender_venv_path = self.init_params['blender_venv_path']
+        self.venv_path = Path(blender_venv_path)
+        if self.venv_path.exists():
+            try:
+                self.name = self.venv_path.name
+                self.venv_config: dict = self._get_blender_venv_config()
+                self.blender_program: BlenderProgram = self._get_blender_program()
+                self.site_packages: PythonPackageSet = self._get_site_packages()
+                self.bpy_package: PythonLocalPackage = self._get_bpy_package()
+                return Result(True, '', self)
+            except Exception as e:
+                return Result(False, f'Error creating Blender virtual environment: {e}')
+        else:
+            return Result(False, f'Blender virtual environment not found at {self.venv_path}')
 
     # endregion
 
@@ -314,7 +334,9 @@ class BlenderVenv(Dillable):
         return False
 
     def __hash__(self):
-        return hash(self.venv_path.as_posix())
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self.venv_path.as_posix())
+        return self._hash
 
 
 class BlenderVenvManager:
@@ -327,9 +349,11 @@ class BlenderVenvManager:
         raise Exception('BlenderVenvManager should not be instantiated.')
 
     @staticmethod
-    def create_blender_venv(blender_program: BlenderProgram, venv_path: str or Path, delete_existing=False) -> Result:
+    def create_venv_from_blender_program(blender_program: BlenderProgram, venv_path: str or Path,
+                                         delete_existing=False) -> Result:
         """
-        Create a Blender virtual environment at the given path from the given BlenderProgram object.
+        Physically create a virtual environment at the given path based on the Python interpreter of the given
+        BlenderProgram object.
 
         :param blender_program: a BlenderProgram object
         :param venv_path: the path to create the Blender virtual environment
@@ -346,12 +370,21 @@ class BlenderVenvManager:
                 os.makedirs(venv_path)
                 options = [venv_path.as_posix(), '--python', blender_program.python_exe_path.as_posix()]
                 virtualenv.cli_run(options)
-                blender_venv = BlenderVenv(venv_path)
-                if blender_venv.verify():
-                    return Result(True, 'Blender virtual environment created successfully', blender_venv)
-                else:
-                    return Result(False, f'Error creating Blender virtual environment: {venv_path}')
+                return BlenderVenvManager.create_blender_venv(venv_path)
             except Exception as e:
                 return Result(False, f'Error creating Blender virtual environment: {e}')
         else:
             return Result(False, f'Error creating Blender virtual environment: Blender program not verified')
+
+    @staticmethod
+    def create_blender_venv(blender_venv_path: str or Path) -> Result:
+        """
+        Create a Blender venv instance from a pre-existing virtual environment created from a Blender's Python
+        interpreter. Typically, the venv path is from the repository's venv directory.
+
+        :param blender_venv_path: the path to create the Blender virtual environment
+
+        :return: a Result object with the BlenderVenv object as the data
+        """
+        blog(2, 'Creating a Blender virtual environment...')
+        return BlenderVenv(blender_venv_path).create_instance()

@@ -7,7 +7,7 @@ from components.blender_venv import BlenderVenvManager
 
 def create_venv(blender_path, venv_path):
     blender_program = BlenderProgram(blender_path)
-    blender_venv = BlenderVenvManager.create_blender_venv(blender_program, venv_path, delete_existing=True)
+    blender_venv = BlenderVenvManager.create_venv_from_blender_program(blender_program, venv_path, delete_existing=True)
     blender_venv.install_bpy_package()
     blender_venv.install_site_pacakge(PythonPyPIPackage('pyautogen'))
 

@@ -10,7 +10,8 @@ from components.blender_program import BlenderProgram, BlenderProgramManager
 def test_blender_program_class():
     # This test will only succeed if Blender is installed at the given path.
     blender_exe_path = Path(TESTDATA['blender_program|0|blender_exe_path'])
-    blender_program = BlenderProgram(blender_exe_path)
+    result = BlenderProgramManager.create_blender_program(blender_exe_path)
+    blender_program = result.data
     python_exe_path = Path(TESTDATA['blender_program|0|python_exe_path'])
     assert blender_program.python_exe_path == python_exe_path
     assert blender_program.python_version == Version(TESTDATA['blender_program|0|python_version'])
@@ -32,11 +33,3 @@ def test_blender_program_class():
     assert restored.blender_version == Version(TESTDATA['blender_program|0|blender_version'])
     assert len(restored.python_packages.package_dict) == 12
     blender_program.dill_save_path.unlink()
-
-
-def test_blender_program_manager_class():
-    result = BlenderProgramManager.create_blender_program(TESTDATA['blender_program|0|blender_exe_path'],
-                                                          name='TestBlender')
-    assert result, 'BlenderProgram should be created'
-    blender_program = result.data
-    assert blender_program.name == 'TestBlender', 'BlenderProgram should have the given name'

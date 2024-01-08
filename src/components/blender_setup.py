@@ -70,7 +70,9 @@ class BlenderSetup(Dillable):
         return False
 
     def __hash__(self):
-        return hash(self.setup_path.as_posix())
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self.setup_path.as_posix())
+        return self._hash
 
 
 class BlenderSetupManager:

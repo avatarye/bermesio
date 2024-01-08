@@ -43,6 +43,8 @@ class BlenderAddon(Dillable):
     symlinked to the target Blender addon to make the code editable.
     """
 
+    # region Initialization
+
     name, version, blender_version_min, description = None, None, None, None
 
     # A name used in the repository GUI, i.e., "Fluent 1.0.0"
@@ -58,30 +60,14 @@ class BlenderAddon(Dillable):
         """
         Create a BlenderAddon object from the addon path. This is usually not directly called. The recommended way is to
         use BlenderAddonManager.create_blender_addon() to create a BlenderAddon object, which will automatically detect
-        the addon type and use the corresponding subclass.
+        the addon type and use the corresponding subclass, and then call creat_instance method.
 
         :param addon_path: A path to the addon, which can be a zip file, a directory, or a single Python file.
         :param repo_dir: A path to the addon repository, which is used to store the addon in the repository.
         :param delete_existing: A flag indicating if the existing addon in the repository should be deleted.
         """
         super().__init__()
-        self.addon_path = Path(addon_path)
-        if self.addon_path.exists():
-            self.name, self.version, self.blender_version_min, self.description = self._get_addon_info()
-            # At least name and version must be available to be a valid Blender addon
-            if None not in [self.name, self.version]:
-                self.repo_name = f'{self.name} {self.version}'
-                self.repo_zip_file_name = f'{self.repo_name.replace(" ", "_").lower()}.zip'
-                # Use detected addon name to allow the input path named freely, such as "src" or "addon"
-                self.symlinked_dir_name = self.name.replace(" ", "_").lower()
-                # Use the original name for the single file addon to avoid confusion
-                self.symlinked_single_file_name = self.addon_path.name
-                if repo_dir:
-                    self._store_in_repo(repo_dir, delete_existing=delete_existing)
-            else:
-                raise Exception(f'Error getting Blender addon information in {self.addon_path}')
-        else:
-            raise FileNotFoundError(f'Blender addon not found at {self.addon_path}')
+        self.init_params = {'addon_path': addon_path, 'repo_dir': repo_dir, 'delete_existing': delete_existing}
 
     def _get_addon_init_file_content(self) -> str or None:
         """This method should be implemented in subclasses."""
@@ -111,12 +97,46 @@ class BlenderAddon(Dillable):
                                 bl_info_dict.get('description', None))
                     except SyntaxError:
                         pass
-        blog(3, f'Error getting Blender addon information from bl_info dictionary in {self.addon_path}')
         return None, None, None, None
 
-    def _store_in_repo(self, repo_dir: Path, delete_existing=False):
+    def _store_in_repo(self, repo_dir: Path, delete_existing=False) -> Result:
         """This method should be implemented in subclasses."""
         raise NotImplementedError
+
+    def create_instance(self) -> Result:
+        """
+        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
+        the manager which handles the result returned by this method. Returning a Result object is the main reason for
+        using this method instead of __init__.
+
+        :return: a Result object indicating if the initialization is successful and the message generated during the
+                 initialization
+        """
+        addon_path = self.init_params['addon_path']
+        repo_dir = self.init_params['repo_dir']
+        delete_existing = self.init_params['delete_existing']
+        self.addon_path = Path(addon_path)
+        if self.addon_path.exists():
+            self.name, self.version, self.blender_version_min, self.description = self._get_addon_info()
+            # At least name and version must be available to be a valid Blender addon
+            if None not in [self.name, self.version]:
+                self.repo_name = f'{self.name} {self.version}'
+                self.repo_zip_file_name = f'{self.repo_name.replace(" ", "_").lower()}.zip'
+                # Use detected addon name to allow the input path named freely, such as "src" or "addon"
+                self.symlinked_dir_name = self.name.replace(" ", "_").lower()
+                # Use the original name for the single file addon to avoid confusion
+                self.symlinked_single_file_name = self.addon_path.name
+                if repo_dir:
+                    result = self._store_in_repo(repo_dir, delete_existing=delete_existing)
+                    if not result:
+                        return result
+                return Result(True, f'Created Blender addon from {self.addon_path}', self)
+            else:
+                return Result(False, f'Error getting Blender addon information in {self.addon_path}')
+        else:
+            return Result(False, f'Error creating Blender addon: {self.addon_path} does not exist')
+
+    # endregion
 
     def deploy(self, deploy_dir: str or Path, delete_existing=False) -> Result:
         """
@@ -201,7 +221,9 @@ class BlenderAddon(Dillable):
         return False
 
     def __hash__(self):
-        return hash(self.addon_path.as_posix())
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self.addon_path.as_posix())
+        return self._hash
 
 
 class BlenderZippedAddon(BlenderAddon):
@@ -583,14 +605,7 @@ class BlenderAddonManager:
         if result:
             blog(2, f'Creating a {result.data.__name__} instance...')
             addon_class = result.data
-            try:
-                addon_instance = addon_class(addon_path, repo_dir=repo_dir, delete_existing=delete_existing)
-                if addon_instance.verify():
-                    return Result(True, 'Blender addon instance created successfully', addon_instance)
-                else:
-                    return Result(False, 'Error creating Blender addon instance')
-            except Exception as e:
-                return Result(False, f'Error creating Blender addon instance: {e}', e)
+            return addon_class(addon_path, repo_dir=repo_dir, delete_existing=delete_existing).create_instance()
         else:
             return result
 
@@ -638,15 +653,8 @@ class BlenderAddonManager:
         addon_path = Path(addon_path)
         result = BlenderAddonManager.detect_dev_addon_type(addon_path)
         if result:
+            blog(2, f'Creating a {result.data.__name__} instance...')
             addon_class = result.data
-            try:
-                addon_instance = addon_class(addon_path)
-                if addon_instance.verify():
-                    blog(2, 'Blender development addon instance created successfully')
-                    return Result(True, 'Blender development addon instance created successfully', addon_instance)
-                else:
-                    return Result(False, 'Error creating Blender development addon instance')
-            except Exception as e:
-                return Result(False, f'Error creating Blender development addon instance: {e}', e)
+            return addon_class(addon_path).create_instance()
         else:
             return result

@@ -21,11 +21,12 @@ def test_repository_class():
 
     # repo = Repository(repo_dir=repo_dir)
     repo = Repository()
+    repo.init_sub_repos()
     assert repo.is_repository_path_ready, 'Repository path is not ready'
     assert repo.has_internet_connection, 'No internet connection'
     # Test adding Blender program
     result = repo.create_component(BlenderProgram, TESTDATA['blender_program|0|blender_exe_path'])
-    assert result.ok, 'Error creating BlenderProgram'
+    assert result, 'Error creating BlenderProgram'
     blender_program = result.data
     # Test adding Blender venv
     blender_venv = BlenderVenv(TESTDATA['blender_venv|0|blender_venv_path'])

@@ -21,13 +21,7 @@ class PythonDevLibrary(Dillable):
                              name such as "src" or "source". The symlink will use this name as the deployed name.
         """
         super().__init__()
-        self.library_path = Path(library_path)
-        if self.library_path.exists():
-            if library_name is None:  # If no custom name is supplied, use the name of the library path.
-                library_name = self.library_path.name
-            self.name = self._get_validated_library_name(library_name)
-        else:
-            raise FileNotFoundError(f'Development library path {self.library_path} does not exist.')
+        self.init_params = {'library_path': library_path, 'library_name': library_name}
 
     @staticmethod
     def _get_validated_library_name(name: str) -> str:
@@ -41,6 +35,29 @@ class PythonDevLibrary(Dillable):
             return name
         else:
             raise ValueError(f'Invalid library name {name}')
+
+    def create_instance(self) -> Result:
+        """
+        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
+        the manager which handles the result returned by this method. Returning a Result object is the main reason for
+        using this method instead of __init__.
+
+        :return: a Result object indicating if the initialization is successful and the message generated during the
+                 initialization
+        """
+        library_path = self.init_params['library_path']
+        library_name = self.init_params['library_name']
+        self.library_path = Path(library_path)
+        if self.library_path.exists():
+            try:
+                if library_name is None:  # If no custom name is supplied, use the name of the library path.
+                    library_name = self.library_path.name
+                self.name = self._get_validated_library_name(library_name)
+                return Result(True, 'Blender development library instance created successfully', self)
+            except Exception as e:
+                return Result(False, f'Error creating Blender development library instance: {e}', e)
+        else:
+            return Result(False, f'Development library path {self.library_path} does not exist.')
 
     def deploy(self, deploy_dir: str or Path, delete_existing=False) -> Result:
         """
@@ -99,7 +116,9 @@ class PythonDevLibrary(Dillable):
         return False
 
     def __hash__(self):
-        return hash(self.library_path.as_posix())
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self.library_path.as_posix())
+        return self._hash
 
 
 class PythonDevLibraryManager:
@@ -124,11 +143,5 @@ class PythonDevLibraryManager:
         :return: a Result object indicating whether the creation is successful with the PythonDevLibrary object as the
                  data if successful
         """
-        library_path = Path(library_path)
-        try:
-            dev_lib = PythonDevLibrary(library_path, library_name=library_name)
-            if dev_lib.verify():
-                blog(2, 'Blender development library instance created successfully')
-                return Result(True, 'Blender development library instance created successfully', dev_lib)
-        except Exception as e:
-            return Result(False, f'Error creating Blender development library instance: {e}', e)
+        blog(2, 'Creating a Blender development library instance...')
+        return PythonDevLibrary(library_path, library_name=library_name).create_instance()

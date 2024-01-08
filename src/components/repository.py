@@ -37,7 +37,7 @@ class Repository:
             'extension': '.dbv',
             'classes': [BlenderVenv],
             'manager': BlenderVenvManager,
-            'creation_fn': BlenderVenvManager.create_blender_venv,
+            'creation_fn': BlenderVenvManager.create_venv_from_blender_program,
             'data_path_attr': 'venv_path',
         },
         'blender_setup_repo': {
@@ -187,9 +187,9 @@ class Repository:
 
         :return: the sub repo that the component class belongs to or None
         """
-        for sub_repo_config in self.sub_repo_config.values():
+        for sub_repo_name, sub_repo_config in self.sub_repo_config.items():
             if component_class in sub_repo_config['classes']:
-                return getattr(self, sub_repo_config['name'])
+                return getattr(self, sub_repo_name)
         return
 
     def get_component_belonging_sub_repo(self, component) -> 'SubRepository' or None:
@@ -211,10 +211,13 @@ class Repository:
 
     def create_component(self, component_class, *args, **kwargs) -> Result:
         sub_repo = self.get_component_class_belonging_sub_repo(component_class)
-        if not sub_repo:
+        if sub_repo:
             try:
-                component = sub_repo.config['creation_fn'](*args, **kwargs)
-                return self.add_component(component)
+                result = sub_repo.config['creation_fn'](*args, **kwargs)
+                if result:
+                    return self.add_component(result.data)
+                else:
+                    return Result(False, f'Error creating component: {result.message}')
             except Exception as e:
                 return Result(False, f'Error creating component: {e}')
         else:
@@ -341,9 +344,7 @@ class SubRepository:
         if component.__class__ in self.classes:
             # Check if the component already exists in the pool, note this is comparing the hash of the component,
             # which essentially means the content of the component, not the instance itself.
-            if component in self.pool and not force_add:
-                return Result(False, f'{component} already exists in {self.name}')
-            else:
+            if component not in self.pool or not force_add:
                 self.pool[hash(component)] = component
                 if self.component_save_dir:
                     result = component.save_to_disk(self.component_save_dir)
@@ -353,6 +354,8 @@ class SubRepository:
                         return Result(False, f'Error saving {component} to disk: {result.message}')
                 else:
                     return Result(False, f'No component save directory found for {self.name}')
+            else:
+                return Result(False, f'{component} already exists in {self.name}')
         return Result(False, 'Invalid component type')
 
     def update(self, component) -> Result:
