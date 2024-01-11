@@ -1,3 +1,4 @@
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -16,42 +17,17 @@ class BlenderScript(Dillable):
     regular_script_deploy_subdir = f'{Config.app_name.lower()}_scripts'  # must be the same as BlenderSetup class's
     startup_script_deploy_subdir = 'startup'
 
-    def __init__(self, script_path, repo_dir=None, delete_existing=False):
+    def __init__(self, script_path: str or Path):
         """
         Initialize a BlenderScript object with a script path. If the script path is valid, the script will be copied to
         the repo_dir if it is given.
 
         :param script_path: a Path object of the script path
-        :param repo_dir: a Path object of the repo directory to store the script
-        :param delete_existing: a flag indicating whether to delete the existing script at the repo_dir
         """
         super().__init__()
-        self.init_params = {'script_path': script_path, 'repo_dir': repo_dir, 'delete_existing': delete_existing}
-
-    def _store_in_repo(self, repo_dir, delete_existing=False) -> Result:
-        """
-        Store this script in the repo_dir. If the script already exists in the repo_dir, it will be overwritten if the
-        delete_existing flag is set to True.
-
-        :param repo_dir: a Path object of the repo directory to store the script
-        :param delete_existing: a flag indicating whether to delete the existing script at the repo_dir
-
-        :return: a Result object indicating whether the storage is successful
-        """
-        repo_script_path = Path(repo_dir) / self.script_path.name
-        result = SF.ready_target_path(repo_script_path, ensure_parent_dir=True, delete_existing=delete_existing)
-        if not result:
-            return result
-        if not repo_script_path.exists():
-            try:
-                shutil.copy(self.script_path, repo_script_path)
-            except OSError:
-                return Result(False, f'Error copying script to {repo_script_path}.')
-            if repo_script_path.exists():
-                self.script_path = repo_script_path
-                return Result(True)
-        else:
-            return Result(False, f'Error copying script to {repo_script_path}')
+        self.repo_storage = True
+        self.stored_in_repo = False
+        self.init_params = {'script_path': script_path}
 
     def create_instance(self) -> Result:
         """
@@ -63,18 +39,41 @@ class BlenderScript(Dillable):
                  initialization
         """
         script_path = self.init_params['script_path']
-        repo_dir = self.init_params['repo_dir']
-        delete_existing = self.init_params['delete_existing']
         self.script_path = Path(script_path)
         if script_path.exists() and script_path.is_file() and script_path.suffix == '.py':
             self.name = self.script_path.stem
-            if repo_dir:
-                result = self._store_in_repo(repo_dir, delete_existing=delete_existing)
-                if not result:
-                    return result
             return Result(True, f'Blender script instance created successfully.', self)
         else:
             return Result(False, f'Valid Blender script not found at {script_path}')
+
+    def store_in_repo(self, repo_dir) -> Result:
+        """
+        Store this script in the repo_dir. The script already exists scenario should be handled by the repo class, if it
+        still occurs, return a Result object with False and the error message.
+
+        :param repo_dir: a Path object of the repo directory to store the script
+
+        :return: a Result object indicating whether the storage is successful
+        """
+        repo_script_path = Path(repo_dir) / self.script_path.name
+        if self.script_path != repo_script_path:
+            result = SF.ready_target_path(repo_script_path, ensure_parent_dir=True)
+            if not result:
+                return result
+            if not repo_script_path.exists():
+                try:
+                    shutil.copy(self.script_path, repo_script_path)
+                except OSError:
+                    return Result(False, f'Error copying script to {repo_script_path}.')
+                if repo_script_path.exists():
+                    self.script_path = repo_script_path  # Change the script path to the in-repo path
+                    self.stored_in_repo = True  # Flag it is already stored in the repo
+                    return Result(True)
+            else:
+                return Result(False, f'Error copying script to {repo_script_path}')
+        else:
+            return Result(True)
+
 
     def deploy(self, deploy_dir: str or Path, delete_existing=False) -> Result:
         """
@@ -137,26 +136,77 @@ class BlenderScript(Dillable):
         """
         return self.script_path.exists()
 
-    def compare_name(self, other) -> bool:
-        """
-        Compare the name of this script with another script. This is often called for the purpose of updating the
-        script in the repository.
-
-        :param other: another BlenderScript object
-
-        :return: a flag indicating whether the name of this script is the same as the other script
-        """
-        if issubclass(other.__class__, BlenderScript):
-            return self.name == other.name
-        return False
-
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name}'
 
+
+class BlenderReleasedScript(BlenderScript):
+    """
+    This is an intermediary class simply serves as a grouping purpose. It is inherited by BlenderRegularScript and
+    BlenderStartupScript.
+    """
+
+    _sha256_hash = None
+
+    def _get_sha256_hash(self):
+        if self._sha256_hash is None:
+            with open(self.script_path, 'rb') as f:
+                self._sha256_hash = hashlib.sha256(f.read()).hexdigest()
+        return self._sha256_hash
+
+    def __eq__(self, other: 'BlenderReleasedScript'):
+        """
+        The equality of 2 BlenderReleasedScript objects is determined by the addon script content, which is represented
+        by its sha256 hash value.
+
+        :param other: another BlenderScript object
+
+        :return: True if the Blender script sha256 hash value is the same as the other instance, otherwise False
+        """
+        if issubclass(other.__class__, BlenderScript):
+            return self._get_sha256_hash() == other._get_sha256_hash()
+        return False
+
+    def __hash__(self):
+        if self._hash is None:
+            self._hash = self.get_stable_hash(self._get_sha256_hash())
+        return self._hash
+
+
+class BlenderRegularScript(BlenderReleasedScript):
+    """
+    A class representing a regular Blender script, which is a single arbitrary Python script that is copied to the
+    repository and deployed to the Blender scripts' additional script subdirectory.
+    """
+    def __init__(self, script_path, repo_dir=None, delete_existing=False):
+        super().__init__(script_path, repo_dir=repo_dir, delete_existing=delete_existing)
+
+
+class BlenderStartupScript(BlenderReleasedScript):
+    """
+    A class representing a startup Blender script, which is a single arbitrary Python script that is copied to the
+    repository and deployed to the Blender scripts' startup script subdirectory. Startup scripts are executed when
+    Blender starts. It usually contains code to register Blender operators.
+    """
+    def __init__(self, script_path, repo_dir=None, delete_existing=False):
+        super().__init__(script_path, repo_dir=repo_dir, delete_existing=delete_existing)
+
+
+class BlenderDevScript(BlenderScript):
+    """
+    This is an intermediary class simply serves as a grouping purpose. It is inherited by BlenderDevRegularScript and
+    BlenderDevStartupScript.
+    """
+    def __init__(self, script_path: str or Path):
+        self.repo_storage = False
+        self.stored_in_repo = False
+        super().__init__(script_path, repo_dir=None, delete_existing=False)
+
     def __eq__(self, other: 'BlenderScript'):
         """
-        The equality of 2 BlenderScript objects is determined by the addon path instead of the instance itself. If the
-        instance equality is required, use compare_uuid() from Dillable class.
+        The equality of 2 BlenderDevScript objects is determined by the addon path instead of the instance itself. Since
+        development scripts are not stored in the repository. Its script path is will not be changed and can be used as
+        the unique identifier.
 
         :param other: another BlenderScript object
 
@@ -172,45 +222,26 @@ class BlenderScript(Dillable):
         return self._hash
 
 
-class BlenderRegularScript(BlenderScript):
-    """
-    A class representing a regular Blender script, which is a single arbitrary Python script that is copied to the
-    repository and deployed to the Blender scripts' additional script subdirectory.
-    """
-    def __init__(self, script_path, repo_dir=None, delete_existing=False):
-        super().__init__(script_path, repo_dir=repo_dir, delete_existing=delete_existing)
-
-
-class BlenderStartupScript(BlenderScript):
-    """
-    A class representing a startup Blender script, which is a single arbitrary Python script that is copied to the
-    repository and deployed to the Blender scripts' startup script subdirectory. Startup scripts are executed when
-    Blender starts. It usually contains code to register Blender operators.
-    """
-    def __init__(self, script_path, repo_dir=None, delete_existing=False):
-        super().__init__(script_path, repo_dir=repo_dir, delete_existing=delete_existing)
-
-
-class BlenderDevRegularScript(BlenderScript):
+class BlenderDevRegularScript(BlenderDevScript):
     """
     A class representing a development regular Blender script, which is a single arbitrary Python script that is
     symlinked to the Blender scripts' additional script subdirectory.
     """
     def __init__(self, script_path):
-        super().__init__(script_path, repo_dir=None, delete_existing=False)
+        super().__init__(script_path)
 
     def _store_in_repo(self, repo_dir, delete_existing=False) -> Result:
         raise NotImplementedError
 
 
-class BlenderDevStartupScript(BlenderScript):
+class BlenderDevStartupScript(BlenderDevScript):
     """
     A class representing a development startup Blender script, which is a single arbitrary Python script that is
     symlinked to the Blender scripts' startup script subdirectory. Startup scripts are executed when Blender starts.
     It usually contains code to register Blender operators.
     """
     def __init__(self, script_path):
-        super().__init__(script_path, repo_dir=None, delete_existing=False)
+        super().__init__(script_path)
 
     def _store_in_repo(self, repo_dir, delete_existing=False) -> Result:
         raise NotImplementedError

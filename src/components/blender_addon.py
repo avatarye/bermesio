@@ -67,6 +67,8 @@ class BlenderAddon(Dillable):
         :param delete_existing: A flag indicating if the existing addon in the repository should be deleted.
         """
         super().__init__()
+        self.repo_storage = True
+        self.stored_in_repo = False
         self.init_params = {'addon_path': addon_path, 'repo_dir': repo_dir, 'delete_existing': delete_existing}
 
     def _get_addon_init_file_content(self) -> str or None:
@@ -226,7 +228,15 @@ class BlenderAddon(Dillable):
         return self._hash
 
 
-class BlenderZippedAddon(BlenderAddon):
+class BlenderReleasedAddon(BlenderAddon):
+    """
+    This is an intermediary class simply serves as a grouping purpose. It is inherited by BlenderZippedAddon,
+    BlenderDirectoryAddon, and BlenderSingleFileAddon.
+    """
+    pass
+
+
+class BlenderZippedAddon(BlenderReleasedAddon):
     """
     A class representing a Blender addon in a zip file with necessary information, including the addon name, version,
     Blender version, and description. When storing the addon in the addon repository, it will intelligently rezip the
@@ -347,7 +357,7 @@ class BlenderZippedAddon(BlenderAddon):
             return Result(False, f'Addon already exists in the repository at {repo_addon_path}')
 
 
-class BlenderDirectoryAddon(BlenderAddon):
+class BlenderDirectoryAddon(BlenderReleasedAddon):
     """
     A class representing a Blender addon in a directory with necessary information, including the addon name, version,
     Blender version, and description. When storing the addon in the addon repository, it will pack the addon into a zip
@@ -416,7 +426,7 @@ class BlenderDirectoryAddon(BlenderAddon):
             Result(False, f'Error copying addon to {repo_addon_path}')
 
 
-class BlenderSingleFileAddon(BlenderAddon):
+class BlenderSingleFileAddon(BlenderReleasedAddon):
     """
     A class representing a Blender addon with a single non-init Python file with necessary information, including the
     addon name, version, Blender version, and description.
@@ -447,7 +457,18 @@ class BlenderSingleFileAddon(BlenderAddon):
                 return Result(False, f'Error copying addon to {repo_addon_path}')
 
 
-class BlenderDevDirectoryAddon(BlenderDirectoryAddon):
+class BlenderDevAddon(BlenderAddon):
+    """
+    This is an intermediary class simply serves as a grouping purpose. It is inherited BlenderDevDirectoryAddon, and
+    BlenderDevSingleFileAddon.
+    """
+    def __init__(self, addon_path: str or Path):
+        self.repo_storage = False
+        self.stored_in_repo = False
+        super().__init__(addon_path, repo_dir=False, delete_existing=False)
+
+
+class BlenderDevDirectoryAddon(BlenderDevAddon):
     """
     A class representing a Blender addon in development, which is a directory located in a non-repo path, typically the
     developer's own directory. It will not be stored in the addon repo and only be symlinked to the target Blender
@@ -468,7 +489,7 @@ class BlenderDevDirectoryAddon(BlenderDirectoryAddon):
         raise NotImplementedError('BlenderDevAddon cannot be stored in a repo')
 
 
-class BlenderDevSingleFileAddon(BlenderSingleFileAddon):
+class BlenderDevSingleFileAddon(BlenderDevAddon):
     """
     A class representing a Blender addon in development, which is a single file located in a non-repo path, typically
     the developer's own directory. The only format supported is a single .py file with Blender addon information in it,
@@ -605,7 +626,8 @@ class BlenderAddonManager:
         if result:
             blog(2, f'Creating a {result.data.__name__} instance...')
             addon_class = result.data
-            return addon_class(addon_path, repo_dir=repo_dir, delete_existing=delete_existing).create_instance()
+            return addon_class(addon_path, repo_dir=repo_dir,
+                               delete_existing=delete_existing).create_instance()
         else:
             return result
 

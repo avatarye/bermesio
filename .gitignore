@@ -162,6 +162,7 @@ cython_debug/
 
 # Test data
 _data/*
+_test_data/*
 
 # Dill files
 *.dill

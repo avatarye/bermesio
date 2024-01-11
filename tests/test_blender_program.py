@@ -2,34 +2,25 @@ from pathlib import Path
 
 from packaging.version import Version
 
-from testing_common import TESTDATA, is_dillable
+from testing_common import TESTDATA, is_dillable, get_repo
 
-from components.blender_program import BlenderProgram, BlenderProgramManager
+from components.blender_program import BlenderProgram
 
 
 def test_blender_program_class():
-    # This test will only succeed if Blender is installed at the given path.
-    blender_exe_path = Path(TESTDATA['blender_program|0|blender_exe_path'])
-    result = BlenderProgramManager.create_blender_program(blender_exe_path)
+    repo = get_repo()
+
+    blender_exe_path = Path(TESTDATA['blender_program|0|blender_dir_path'])
+    result = BlenderProgram(blender_exe_path, name='Blender_4.02_Win').create_instance()
     blender_program = result.data
-    python_exe_path = Path(TESTDATA['blender_program|0|python_exe_path'])
-    assert blender_program.python_exe_path == python_exe_path
     assert blender_program.python_version == Version(TESTDATA['blender_program|0|python_version'])
     assert blender_program.blender_version == Version(TESTDATA['blender_program|0|blender_version'])
     assert len(blender_program.python_packages.package_dict) == 12
 
+    result = repo.add_component(blender_program)
+    assert result, 'Error adding BlenderProgram to repo'
+    assert hash(blender_program) in repo.blender_program_repo.pool, 'BlenderProgram not added to sub-repo\'s pool'
+    assert blender_program.data_path.exists(), 'BlenderProgram data path not copied to repo'
+
     # Test dill-ability
     assert is_dillable(blender_program), 'BlenderProgram should be picklable'
-    dill_file_path = Path(__file__).parent
-    result = blender_program.save_to_disk(dill_file_path)
-    assert result, 'BlenderProgram should be saved to disk'
-    assert blender_program.dill_save_path.exists(), 'BlenderProgram should be saved to disk'
-    result = BlenderProgram.load_from_disk(blender_program.dill_save_path)
-    assert result, 'BlenderProgram should be loaded from disk'
-    restored = result.data
-    assert restored.is_verified, 'BlenderProgram should be verified after loading from disk'
-    assert restored.python_exe_path == python_exe_path
-    assert restored.python_version == Version(TESTDATA['blender_program|0|python_version'])
-    assert restored.blender_version == Version(TESTDATA['blender_program|0|blender_version'])
-    assert len(restored.python_packages.package_dict) == 12
-    blender_program.dill_save_path.unlink()

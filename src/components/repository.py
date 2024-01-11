@@ -5,12 +5,10 @@ import tempfile
 import requests
 
 from commons.common import Result, ResultList, blog, SharedFunctions as SF
-from components.blender_addon import (BlenderAddon, BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon,
-                                      BlenderDevDirectoryAddon, BlenderDevSingleFileAddon, BlenderAddonManager)
-from components.blender_program import BlenderProgram, BlenderProgramManager
+from components.blender_addon import BlenderAddon, BlenderReleasedAddon, BlenderDevAddon, BlenderAddonManager
+from components.blender_program import BlenderProgram
 from components.blender_setup import BlenderSetup, BlenderSetupManager
-from components.blender_script import (BlenderScript, BlenderRegularScript, BlenderStartupScript,
-                                       BlenderDevRegularScript, BlenderDevStartupScript, BlenderScriptManager)
+from components.blender_script import BlenderScript, BlenderReleasedScript, BlenderDevScript, BlenderScriptManager
 from components.blender_venv import BlenderVenv, BlenderVenvManager
 from components.python_dev_library import PythonDevLibrary, PythonDevLibraryManager
 from components.profile import Profile, ProfileManager
@@ -24,76 +22,73 @@ class Repository:
     component_save_dir_name = Path('.repo')  # The path for saving components' dill files
 
     sub_repo_config = {
-        'blender_program_repo': {
-            'path': None,
-            'extension': '.dbp',
-            'classes': [BlenderProgram],
-            'manager': BlenderProgramManager,
-            'creation_fn': BlenderProgramManager.create_blender_program,
+        'profile_repo': {
+            'storage_dir': 'Profiles',
+            'extension': '.dpr',
+            'class': Profile,
+            'manager': ProfileManager,
+            'creation_fn': ProfileManager.create_profile,
             'data_path_attr': None,
         },
-        'blender_venv_repo': {
-            'path': 'Venvs',
-            'extension': '.dbv',
-            'classes': [BlenderVenv],
-            'manager': BlenderVenvManager,
-            'creation_fn': BlenderVenvManager.create_venv_from_blender_program,
-            'data_path_attr': 'venv_path',
-        },
         'blender_setup_repo': {
-            'path': 'Setups',
+            'storage_dir': 'Setups',
             'extension': '.dsu',
-            'classes': [BlenderSetup],
+            'class': BlenderSetup,
             'manager': BlenderSetupManager,
             'creation_fn': BlenderSetupManager.create_blender_setup,
             'data_path_attr': 'setup_path',
         },
+        'blender_program_repo': {
+            'storage_dir': 'BlenderPrograms',
+            'extension': '.dbp',
+            'class': BlenderProgram,
+        },
+        'blender_venv_repo': {
+            'storage_dir': 'Venvs',
+            'extension': '.dbv',
+            'class': BlenderVenv,
+            'manager': BlenderVenvManager,
+            'creation_fn': BlenderVenvManager.create_blender_venv,
+            'data_path_attr': 'venv_path',
+        },
         'blender_addon_repo': {
-            'path': 'Addons',
+            'storage_dir': 'Addons',
             'extension': '.dba',
-            'classes': [BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon],
+            'class': BlenderReleasedAddon,
             'manager': BlenderAddonManager,
             'creation_fn': BlenderAddonManager.create_blender_addon,
             'data_path_attr': 'addon_path',
         },
         'blender_script_repo': {
-            'path': 'Scripts',
+            'storage_dir': 'Scripts',
             'extension': '.dbs',
-            'classes': [BlenderRegularScript, BlenderStartupScript],
+            'class': BlenderReleasedScript,
             'manager': BlenderScriptManager,
             'creation_fn': BlenderScriptManager.create_blender_script,
             'data_path_attr': 'script_path',
         },
         'blender_dev_addon_repo': {
-            'path': None,
+            'storage_dir': None,
             'extension': '.dda',
-            'classes': [BlenderDevDirectoryAddon, BlenderDevSingleFileAddon],
+            'class': BlenderDevAddon,
             'manager': BlenderAddonManager,
             'creation_fn': BlenderAddonManager.create_blender_dev_addon,
             'data_path_attr': None,
         },
         'blender_dev_script_repo': {
-            'path': None,
+            'storage_dir': None,
             'extension': '.dds',
-            'classes': [BlenderDevRegularScript, BlenderDevStartupScript],
+            'class': BlenderDevScript,
             'manager': BlenderScriptManager,
             'creation_fn': BlenderScriptManager.create_blender_dev_script,
             'data_path_attr': None,
         },
         'dev_library_repo': {
-            'path': None,
+            'storage_dir': None,
             'extension': '.ddl',
-            'classes': [PythonDevLibrary],
+            'class': PythonDevLibrary,
             'manager': PythonDevLibraryManager,
             'creation_fn': PythonDevLibraryManager.create_python_dev_library,
-            'data_path_attr': None,
-        },
-        'profile_repo': {
-            'path': 'Profiles',
-            'extension': '.dpr',
-            'classes': [Profile],
-            'manager': ProfileManager,
-            'creation_fn': ProfileManager.create_profile,
             'data_path_attr': None,
         },
     }
@@ -104,35 +99,21 @@ class Repository:
             cls._instance = super(Repository, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, repo_dir=None):
-        if not self._is_initialized:
-            # Allow using a repository path other than the default one
-            if repo_dir:
-                self.repo_path = Path(repo_dir)
-            else:
-                self.repo_path = Path(Config.repo_path)
-            self.is_repository_path_ready = False
-            self.has_internet_connection = False
-            self.verify_readiness()
+    def __init__(self, repo_dir: str or Path =None, user_query_fn=None):
+        self.init_params = {'repo_dir': repo_dir, 'user_query_fn': user_query_fn}
 
-            if self.is_repository_path_ready:
-                self.component_save_dir = self._get_component_save_dir()
-                self.sub_repos = {}
-
-            self._is_initialized = True
-
-    def _is_repository_path_ready(self) -> bool:
+    def _is_repository_path_ready(self, repo_dir: Path) -> bool:
         try:
             # Check if the path exists and is a directory
-            if not self.repo_path.exists():
-                os.makedirs(self.repo_path)
-            if os.path.exists(self.repo_path) and self.repo_path.is_dir():
-                testfile = tempfile.TemporaryFile(dir=self.repo_path)
+            if not repo_dir.exists():
+                os.makedirs(repo_dir)
+            if os.path.exists(repo_dir) and repo_dir.is_dir():
+                testfile = tempfile.TemporaryFile(dir=repo_dir)
                 testfile.close()
                 return True
         except (OSError, IOError):
             pass
-        blog(5, f'Repository path {self.repo_path} is not accessible.')
+        blog(5, f'Repository path {repo_dir} is not accessible.')
         return False
 
     @staticmethod
@@ -145,33 +126,59 @@ class Repository:
         blog(3, f'No internet connection.')
         return False
 
-    def verify_readiness(self):
-        self.is_repository_path_ready = self._is_repository_path_ready()
-        self.has_internet_connection = self._if_has_internet_connection()
+    def _get_component_save_dir(self, repo_dir) -> Path:
+        component_save_dir = repo_dir / self.component_save_dir_name
+        result = SF.create_target_dir(component_save_dir)
+        if result:
+            return result.data
+        else:
+            raise Exception(f'Error creating component save directory at {component_save_dir}')
 
-    def _get_component_save_dir(self) -> Path or None:
-        if self.is_repository_path_ready:
-            component_save_dir = self.repo_path / self.component_save_dir_name
-            if not component_save_dir.exists():
-                os.makedirs(component_save_dir)
-            if component_save_dir.exists() and component_save_dir.is_dir():
-                return component_save_dir
-        return
+    def create_instance(self) -> Result:
+        repo_dir = self.init_params['repo_dir']
+        user_query_fn = self.init_params['user_query_fn']
+        if not self._is_initialized:
+            try:
+                # Allow using a repository path other than the default one from the global config
+                if repo_dir:
+                    self.repo_dir = Path(repo_dir)
+                else:
+                    self.repo_dir = Path(Config.repo_dir)
+                self.is_repository_path_ready = self._is_repository_path_ready(self.repo_dir)
+                self.has_internet_connection = self._if_has_internet_connection()
+
+                self.user_query_fn = user_query_fn
+
+                if self.is_repository_path_ready:
+                    Config.repo_dir = repo_dir  # Update the global config with the repo path
+                    self.component_save_dir = self._get_component_save_dir(repo_dir)
+                    self.sub_repos = {}
+                    self._is_initialized = True
+                    return Result(True, 'Repository instance created successfully', self)
+                else:
+                    return Result(False, f'Repository path {self.repo_dir} is not accessible.')
+            except Exception as e:
+                return Result(False, f'Error creating a Repository instance: {e}')
+        else:
+            return Result(True, 'Repository instance already created', self)
 
     def init_sub_repos(self) -> ResultList:
         """
         Initialize all sub repos defined in sub_repo_config. The sub repos will load existing components from disk
         and perform the verification on the components and cleaning of the unloaded or corrupted dill files. The results
-        need to be returned to the caller, so this function is not called in __init__.
+        need to be returned to the caller, so this function is not called in create_instance().
 
         :return: A ResultList of the results of initializing all sub repos
         """
         results = []
         for sub_repo_name, sub_repo_config in self.sub_repo_config.items():
-            sub_repo = SubRepository(self.component_save_dir, sub_repo_name, sub_repo_config)
-            setattr(self, sub_repo_name, sub_repo)
-            self.sub_repos[sub_repo_name] = sub_repo
-            result = sub_repo.load_components_from_disk()
+            result = SubRepository(self.repo_dir, self.component_save_dir, sub_repo_name, sub_repo_config,
+                                   user_query_fn=self.user_query_fn).create_instance()
+            if result:
+                sub_repo = result.data
+                setattr(self, sub_repo_name, sub_repo)
+                self.sub_repos[sub_repo_name] = sub_repo
+                result = sub_repo.load_components_from_disk()
             results.append(result)
         return ResultList(results)
 
@@ -188,7 +195,7 @@ class Repository:
         :return: the sub repo that the component class belongs to or None
         """
         for sub_repo_name, sub_repo_config in self.sub_repo_config.items():
-            if component_class in sub_repo_config['classes']:
+            if issubclass(component_class, sub_repo_config['class']):
                 return getattr(self, sub_repo_name)
         return
 
@@ -203,23 +210,21 @@ class Repository:
         """
         return self.get_component_class_belonging_sub_repo(component.__class__)
 
-    def add_component(self, component) -> Result:
+    def add_component(self, component, delete_existing=False, query_user=False) -> Result:
         sub_repo = self.get_component_belonging_sub_repo(component)
         if sub_repo:
-            return sub_repo.add(component)
+            return sub_repo.add(component, delete_existing=delete_existing, query_user=query_user)
         return Result(False, f'No sub repo found for {component}')
 
     def create_component(self, component_class, *args, **kwargs) -> Result:
         sub_repo = self.get_component_class_belonging_sub_repo(component_class)
         if sub_repo:
-            try:
-                result = sub_repo.config['creation_fn'](*args, **kwargs)
-                if result:
-                    return self.add_component(result.data)
-                else:
-                    return Result(False, f'Error creating component: {result.message}')
-            except Exception as e:
-                return Result(False, f'Error creating component: {e}')
+            kwargs['repo'] = self  # Ensure this repo is passed to the creation function in the component manager
+            result = sub_repo.config['creation_fn'](*args, **kwargs)
+            if result:
+                return self.add_component(result.data)
+            else:
+                return result
         else:
             return Result(False, f'No sub repo found for {component_class}')
 
@@ -262,26 +267,38 @@ class Repository:
 
 class SubRepository:
 
-    def __init__(self, component_save_dir: Path, name: str, config: dict):
-        self.component_save_dir = component_save_dir  # Get the singleton instance of Repository
-        self.name = name
-        self.config = config
-        self.path = self._get_sub_repo_path()
-        self.extension = config['extension']
-        self.classes = config['classes']
-        for class_ in self.classes:
-            class_.dill_extension = self.extension  # Monkey patch the dill extension to the class
-        self.pool = {}
+    def __init__(self, repo_dir: Path, component_save_dir: Path, name: str, config: dict, user_query_fn=None):
+        self.init_params = {'repo_dir': repo_dir, 'component_save_dir': component_save_dir, 'name': name,
+                            'config': config, 'user_query_fn': user_query_fn}
 
-    def _get_sub_repo_path(self) -> Path or None:
+    def _get_storage_save(self, storage_dir) -> Path or None:
         # Check if this sub repo needs a path
-        if self.config['path']:
-            sub_repo_path = self.component_save_dir.parent / self.config['path']
-            if not sub_repo_path.exists():
-                os.makedirs(sub_repo_path)
-            return sub_repo_path
+        result = SF.create_target_dir(self.repo_dir / storage_dir)
+        if result:
+            return result.data
         else:
-            return
+            raise Exception(f'Error creating sub repo storage path at {storage_dir}')
+
+    def create_instance(self) -> Result:
+        try:
+            self.repo_dir = self.init_params['repo_dir']
+            self.component_save_dir = self.init_params['component_save_dir']
+            self.name = self.init_params['name']
+            self.config = self.init_params['config']
+            self.user_query_fn = self.init_params['user_query_fn']
+            if self.config['storage_dir'] is not None:  # Some sub-repo doesn't need a storage path
+                self.storage_save_dir = self._get_storage_save(self.config['storage_dir'])
+            else:
+                self.storage_save_dir = None
+            self.extension = self.config['extension']
+            self.class_ = self.config['class']
+            self.class_.dill_extension = self.extension  # Monkey patch the dill extension to the class
+            for class_ in self.class_.__subclasses__():
+                class_.dill_extension = self.extension  # Monkey patch the dill extension to the subclasses
+            self.pool = {}
+            return Result(True, f'Sub repo {self.name} created successfully', self)
+        except Exception as e:
+            return Result(False, f'Error creating a SubRepository instance: {e}')
 
     def load_components_from_disk(self) -> Result:
         """
@@ -296,30 +313,36 @@ class SubRepository:
             corrupted_dill_files = []
             # Collect all dill files of the same extension from disk
             dill_files = [file for file in self.component_save_dir.iterdir() if file.suffix == self.extension]
-            # Get the first class in the list, the dill file loading function is a class function, so it is OK to call
-            # it with any class in the list.
-            class_ = self.classes[0]
             # Go through all found dill files
             while len(dill_files):
                 file = dill_files.pop()
-                result = class_.load_from_disk(file)
+                result = self.class_.load_from_disk(file)
                 if result:
                     component = result.data
                     # Doublecheck the class of the loaded component
-                    if component.__class__ in self.classes:
-                        # The component pool is indexed by the hash of the component
+                    if issubclass(component.__class__, self.class_):
+                        # The component pool is indexed by the hash of the component. We do not check if the component
+                        # already exists in the pool, because this method should be only be called when the pool is
+                        # empty.
                         self.pool[hash(component)] = component
+                        result = Result(True, f'{component} loaded from {file}')
                     else:
                         corrupted_dill_files.append(file)
                         result = Result(False, f'The loaded component is of the type {component.__class__}, '
-                                               f'not the expected type {self.classes}. The file will be removed.')
+                                               f'not the expected type {self.class_}. The file will be removed.')
                 # If failed to load, consider the file to be corrupted
                 else:
                     corrupted_dill_files.append(file)
                 results.append(result)
-            # Remove the corrupted dill files from disk
-            for file in corrupted_dill_files:
-                os.remove(file)
+
+            # Remove the corrupted dill files from disk if user agrees
+            if len(corrupted_dill_files) and self.user_query_fn is not None:
+                result = self.user_query_fn('Corrupted Saved Data Found',
+                                            f'{len(corrupted_dill_files)} corrupted saved files found for {self.name}. '
+                                            f'Would you like to remove them?')
+                if result:
+                    for file in corrupted_dill_files:
+                        os.remove(file)
 
             result_list = ResultList(results)
             if len(result_list.error_messages):
@@ -340,65 +363,91 @@ class SubRepository:
     def get(self, component) -> object or None:
         return self.pool.get(hash(component), None)
 
-    def add(self, component, force_add=False) -> Result:
-        if component.__class__ in self.classes:
+    def add(self, component, delete_existing=False, query_user=False) -> Result:
+        if issubclass(component.__class__, self.class_):
             # Check if the component already exists in the pool, note this is comparing the hash of the component,
             # which essentially means the content of the component, not the instance itself.
-            if component not in self.pool or not force_add:
-                self.pool[hash(component)] = component
-                if self.component_save_dir:
-                    result = component.save_to_disk(self.component_save_dir)
-                    if result:
-                        return Result(True, f'{component} added to {self.name}', component)
-                    else:
-                        return Result(False, f'Error saving {component} to disk: {result.message}')
-                else:
-                    return Result(False, f'No component save directory found for {self.name}')
-            else:
-                return Result(False, f'{component} already exists in {self.name}')
-        return Result(False, 'Invalid component type')
-
-    def update(self, component) -> Result:
-        if issubclass(component.__class__, self.classes):
             if component in self.pool:
-                result = self.add(component, force_add=True)
-                return result
-            else:
-                return Result(False, f'{component} doesn\'t exists in {self.name}')
-        else:
-            return Result(False, f'Invalid component type')
+                if query_user and self.user_query_fn is not None:
+                    result = self.user_query_fn('Add Component', f'{component} already exists in the repo. Would you '
+                                                                 f'like to replace it?')
+                    # If user agrees to replace the existing component, remove the existing component from the repo
+                    if result:
+                        # Remove the existing component from the repo
+                        result = self.remove(component, query_user=False)
+                        if not result:
+                            return result  # Return error message if failed to remove the existing component
+                    # If user cancels the operation, return True to indicate the operation is cancelled.
+                    else:
+                        return Result(True, f'User cancelled adding {component} to the repo.')
+                else:
+                    return Result(False, f'{component} already exists in the repo')
 
-    def remove(self, component, remove_in_repo_data=True) -> Result:
+            if self.component_save_dir:
+                # Store the component in the repo storage path if applicable
+                if self.storage_save_dir and component.if_store_in_repo:
+                    result = component.store_in_repo(self.storage_save_dir)
+                    if not result:
+                        return result
+                # Add the component to the pool after storing it in the repo, for this will change its data path and
+                # hash value
+                self.pool[hash(component)] = component
+                # Save the component to disk
+                result = component.save_to_disk(self.component_save_dir)
+                if not result:
+                    return result
+                return Result(True, f'{component} added to the repo', component)
+            else:
+                return Result(False, f'No component save directory found for the repo')
+        else:
+            return Result(False, 'Invalid component type')
+
+    def remove(self, component, query_user=True) -> Result:
         if self.component_save_dir:
-            if issubclass(component.__class__, self.classes):
+            if issubclass(component.__class__, self.class_):
+                # Query user if necessary
+                if query_user and self.user_query_fn is not None:
+                    result = self.user_query_fn('Remove Component',
+                                                f'Would you like to remove {component} from the repo?')
+                    if not result:
+                        return Result(True, f'User cancelled removing {component} from the repo.')
+
+                # Remove the component from the pool, its dill file, and associated data if stored in the repo
                 if component in self.pool:
                     # Remove the component from the pool
                     del self.pool[hash(component)]
                     component.remove_from_disk()
-                    if remove_in_repo_data:
+                    if component.if_store_in_repo:
                         in_repo_data_path = getattr(component, self.config['data_path_attr'], None)
                         if in_repo_data_path:
                             result = SF.remove_target_path(in_repo_data_path)
                             if result:
-                                return Result(True, f'{component} removed from {self.name}')
+                                return Result(True, f'{component} removed from the repo')
                             else:
-                                return Result(True, f'{component} removed from {self.name}, but failed to remove its '
+                                return Result(True, f'{component} removed from the repo, but failed to remove its '
                                                     f'data in the repo at {in_repo_data_path}.')
                         else:
-                            return Result(True, f'{component} removed from {self.name}, but failed to find its data in '
+                            return Result(True, f'{component} removed from the repo, but failed to find its data in '
                                                 f'the repo.')
-                    return Result(True, f'{component} removed from {self.name}')
+                    return Result(True, f'{component} removed from the repo')
                 else:
-                    return Result(False, f'{component} doesn\'t exists in {self.name}')
-            return Result(False, 'Invalid component type')
+                    return Result(False, f'{component} doesn\'t exists in the repo')
+            return Result(False, f'Invalid component type, {component.__class__} is not a subclass of {self.class_}')
         else:
-            return Result(False, f'No component save directory found for {self.name}')
+            return Result(False, f'No component save directory found for the repo')
 
-    def clear_pool(self, remove_from_disk=False):
-        if self.pool and remove_from_disk:
-            for component in self.pool.values():
-                component.remove_from_disk()
+    # TODO: Implement this function after Profile and Setup are implemented. Updating components needs to be done with
+    # Profile and Setup instances as well.
+    def update(self, component) -> Result:
+        raise NotImplementedError
+
+    def clear_pool(self) -> Result:
+        result = Result(True, f'Pool cleared for {self.name}')
+        if self.pool:
+            components = list(self.pool.values())
+            result = ResultList([self.remove(component, query_user=False) for component in components]).to_result()
         self.pool = {}
+        return result
 
     def __str__(self):
         return f'{self.name}: {len(self.pool)} components'

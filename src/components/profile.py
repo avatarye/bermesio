@@ -32,6 +32,7 @@ class Profile(Dillable):
 
     def __init__(self, name, repo_profile_dir, init_dict=None):
         super().__init__()
+        self.repo_storage = False
         self.name = self._get_validated_profile_name(name)
         self.profile_dir = self._get_validated_profile_dir(repo_profile_dir)
         self.blender_program: BlenderProgram = init_dict.get('blender_program', None)

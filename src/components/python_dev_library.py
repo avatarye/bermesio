@@ -21,6 +21,7 @@ class PythonDevLibrary(Dillable):
                              name such as "src" or "source". The symlink will use this name as the deployed name.
         """
         super().__init__()
+        self.repo_storage = False
         self.init_params = {'library_path': library_path, 'library_name': library_name}
 
     @staticmethod

@@ -28,6 +28,8 @@ class BlenderSetup(Dillable):
 
     def __init__(self, setup_path: str or Path):
         super().__init__()
+        self.repo_storage = True
+        self.stored_in_repo = False
         self.setup_path = Path(setup_path)
         if self.setup_path.exists():
             self.config = self._get_setup_config()

@@ -5,15 +5,16 @@ import shutil
 
 import virtualenv
 
-from commons.common import Result, blog, Dillable, SharedFunctions as SF
+from commons.common import Result, blog, SharedFunctions as SF
 from commons.command import run_command
-from components.blender_program import BlenderProgram, BlenderProgramManager
+from components.blender_program import BlenderProgram
+from components.component import Component
 from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonPackageSet
 from components.python_dev_library import PythonDevLibrary
 from config import Config
 
 
-class BlenderVenv(Dillable):
+class BlenderVenv(Component):
     """
     A class representing a Blender virtual environment with necessary information, including a BlenderProgram object
     of its associated Blender (this venv originates from), and the Python packages.
@@ -32,6 +33,9 @@ class BlenderVenv(Dillable):
 
     def __init__(self, blender_venv_path):
         super().__init__()
+        self.repo_storage = True
+        self.stored_in_repo = False
+        self.platform = sys.platform  # OS platform
         self.init_params = {'blender_venv_path': blender_venv_path}
 
     def _get_blender_venv_config(self) -> dict:

@@ -80,8 +80,8 @@ class ResultList:
         return Result(self.ok, self.messages, self.data, error_log_level=self.error_log_level)
 
     def __str__(self):
-        return f'{"Success" if self.ok else "Failure"}: {len(self.message)} successes, {len(self.error_messages)} ' \
-                f'errors, {self.data}'
+        return (f'{"Success" if self.ok else "Failure"}: {len(self.success_messages)} successes, '
+                f'{len(self.error_messages)} errors, {self.data}')
 
     def __bool__(self):
         return self.ok
@@ -299,11 +299,11 @@ class SharedFunctions:
             except OSError as e:
                 return Result(False, f'Error creating {target_dir}: {e}')
             if target_dir.exists():
-                return Result(True, f'{target_dir} created')
+                return Result(True, f'{target_dir} created', target_dir)
             else:
                 return Result(False, f'Error creating {target_dir}')
         else:
-            return Result(True, f'{target_dir} already exists')
+            return Result(True, f'{target_dir} already exists', target_dir)
 
     @staticmethod
     def remove_target_path(target_path: str or Path) -> Result:

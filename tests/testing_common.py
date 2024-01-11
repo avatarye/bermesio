@@ -1,13 +1,16 @@
 import json
+import shutil
 from pathlib import Path
 import sys
 
 import dill
 
+from components.repository import Repository
+
 
 class TestData:
     def __init__(self):
-        test_data_json_path = Path(__file__).parent / 'TestData.json'
+        test_data_json_path = Path(__file__).parent.parent / '_test_data/TestData.json'
         if test_data_json_path.exists():
             with open(test_data_json_path, 'r') as f:
                 self.test_data_json = json.load(f)
@@ -40,3 +43,21 @@ def is_dillable(obj):
     except Exception as e:
         print(f'{obj} is not dillable, {e}')
         return False
+
+
+def get_repo(repo_dir=None, delete_existing=True):
+    if repo_dir is None:
+        repo_dir = Path(TESTDATA["temp_dir"]) / 'test_repo'
+    if repo_dir.exists() and delete_existing:
+        shutil.rmtree(repo_dir)
+
+    result = Repository(repo_dir).create_instance()
+    if result:
+        repo = result.data
+        results = repo.init_sub_repos()
+        if results:
+            return repo
+        else:
+            raise Exception(f'Error initializing sub-repository: {result.message}')
+    else:
+        raise Exception(f'Error creating repository: {result.message}')
