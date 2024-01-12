@@ -24,19 +24,15 @@ class Repository:
     sub_repo_config = {
         'profile_repo': {
             'storage_dir': 'Profiles',
-            'extension': '.dpr',
             'class': Profile,
             'manager': ProfileManager,
             'creation_fn': ProfileManager.create_profile,
-            'data_path_attr': None,
         },
         'blender_setup_repo': {
             'storage_dir': 'Setups',
-            'extension': '.dsu',
             'class': BlenderSetup,
             'manager': BlenderSetupManager,
             'creation_fn': BlenderSetupManager.create_blender_setup,
-            'data_path_attr': 'setup_path',
         },
         'blender_program_repo': {
             'storage_dir': 'BlenderPrograms',
@@ -46,11 +42,9 @@ class Repository:
         },
         'blender_venv_repo': {
             'storage_dir': 'Venvs',
-            'extension': '.dbv',
             'class': BlenderVenv,
             'manager': BlenderVenvManager,
             'creation_fn': BlenderVenvManager.create,
-            'data_path_attr': 'venv_path',
         },
         'blender_addon_repo': {
             'storage_dir': 'Addons',
@@ -58,39 +52,30 @@ class Repository:
             'class': BlenderReleasedAddon,
             'manager': BlenderAddonManager,
             'creation_fn': BlenderAddonManager.create_blender_addon,
-            'data_path_attr': 'addon_path',
         },
         'blender_script_repo': {
             'storage_dir': 'Scripts',
-            'extension': '.dbs',
             'class': BlenderReleasedScript,
             'manager': BlenderScriptManager,
-            'creation_fn': BlenderScriptManager.create_blender_script,
-            'data_path_attr': 'script_path',
+            # 'creation_fn': BlenderScriptManager.create,
         },
         'blender_dev_addon_repo': {
             'storage_dir': None,
-            'extension': '.dda',
             'class': BlenderDevAddon,
             'manager': BlenderAddonManager,
             'creation_fn': BlenderAddonManager.create_blender_dev_addon,
-            'data_path_attr': None,
         },
         'blender_dev_script_repo': {
             'storage_dir': None,
-            'extension': '.dds',
             'class': BlenderDevScript,
             'manager': BlenderScriptManager,
-            'creation_fn': BlenderScriptManager.create_blender_dev_script,
-            'data_path_attr': None,
+            # 'creation_fn': BlenderScriptManager.create_dev,
         },
         'dev_library_repo': {
             'storage_dir': None,
-            'extension': '.ddl',
             'class': PythonDevLibrary,
             'manager': PythonDevLibraryManager,
-            'creation_fn': PythonDevLibraryManager.create_python_dev_library,
-            'data_path_attr': None,
+            'creation_fn': PythonDevLibraryManager.create
         },
     }
     sub_repos = {}  # A dict of sub repos indexed by the same keys above
@@ -426,14 +411,13 @@ class SubRepository:
                     del self.pool[hash(component)]
                     component.remove_from_disk()
                     if component.if_store_in_repo:
-                        in_repo_data_path = getattr(component, self.config['data_path_attr'], None)
-                        if in_repo_data_path:
-                            result = SF.remove_target_path(in_repo_data_path)
+                        if component.data_path.exists():
+                            result = SF.remove_target_path(component.data_path)
                             if result:
                                 return Result(True, f'{component} removed from the repo')
                             else:
                                 return Result(True, f'{component} removed from the repo, but failed to remove its '
-                                                    f'data in the repo at {in_repo_data_path}.')
+                                                    f'data in the repo at {component.data_path}.')
                         else:
                             return Result(True, f'{component} removed from the repo, but failed to find its data in '
                                                 f'the repo.')

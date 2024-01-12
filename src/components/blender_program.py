@@ -129,7 +129,6 @@ class BlenderProgram(Component):
                     self.python_exe_path, self.python_version = get_python_exe_path_version()
                     self.python_site_pacakge_dir = get_python_site_packages_dir()
                     self.python_packages = get_python_packages()
-
                     return Result(True, f'Blender program instance created successfully.', self)
                 else:
                     return Result(False, f'Blender executable file not found at {self.blender_exe_path}')

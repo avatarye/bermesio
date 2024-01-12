@@ -1,10 +1,11 @@
 import os
 from pathlib import Path
 
-from commons.common import Result, Dillable, blog, SharedFunctions as SF
+from commons.common import Result, blog, SharedFunctions as SF
+from components.component import Component
 
 
-class PythonDevLibrary(Dillable):
+class PythonDevLibrary(Component):
     """
     A class representing a development Python library. It uses the actual source code directory which will be symlinked
     to the deploy directory. It is a simplified approach appending a local library to the target Python environment
@@ -12,53 +13,35 @@ class PythonDevLibrary(Dillable):
     Blender dev environment.
     """
 
-    def __init__(self, library_path: str or Path, library_name: str = None):
+    def __init__(self, library_path: str or Path, name: str = None):
         """
         Create a PythonDevLibrary object with a custom name if supplied.
 
         :param library_path: a str or Path object of the path to the development library source code
-        :param library_name: a custom name of the development library, especially when the library name is not a unique
+        :param name: a custom name of the development library, especially when the library name is not a unique
                              name such as "src" or "source". The symlink will use this name as the deployed name.
         """
-        super().__init__()
-        self.repo_storage = False
-        self.init_params = {'library_path': library_path, 'library_name': library_name}
-
-    @staticmethod
-    def _get_validated_library_name(name: str) -> str:
-        """
-        Validate the library name. It should be a valid name for a path.
-
-        :param name: a str of the library name
-        :return: a str of the validated library name
-        """
-        if SF.is_valid_name_for_path(name):
-            return name
-        else:
-            raise ValueError(f'Invalid library name {name}')
+        super().__init__(library_path)
+        self.dill_extension = '.dpl'
+        self.if_store_in_repo = False
+        self.init_params = {'library_path': library_path, 'name': name}
 
     def create_instance(self) -> Result:
         """
-        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
-        the manager which handles the result returned by this method. Returning a Result object is the main reason for
-        using this method instead of __init__.
+        Create a PythonDevLibrary object based on an existing development library source code path.
 
-        :return: a Result object indicating if the initialization is successful and the message generated during the
-                 initialization
+        :return: a Result object indicating if the initialization is successful, the message generated during the
+                 initialization, and this object if successful.
         """
-        library_path = self.init_params['library_path']
-        library_name = self.init_params['library_name']
-        self.library_path = Path(library_path)
-        if self.library_path.exists():
-            try:
-                if library_name is None:  # If no custom name is supplied, use the name of the library path.
-                    library_name = self.library_path.name
-                self.name = self._get_validated_library_name(library_name)
-                return Result(True, 'Blender development library instance created successfully', self)
-            except Exception as e:
-                return Result(False, f'Error creating Blender development library instance: {e}', e)
+        if self.data_path is not None:
+            self.name = self.init_params['name']
+            if self.name is None:  # If no custom name is supplied, use the name of the library path.
+                self.name = self.data_path.name
+            if not SF.is_valid_name_for_path(self.name):
+                return Result(False, f'Invalid name {self.name} for the Python development library.')
+            return Result(True, 'Python development library instance created successfully', self)
         else:
-            return Result(False, f'Development library path {self.library_path} does not exist.')
+            return Result(False, f'Python development library path not found at {self.data_path}')
 
     def deploy(self, deploy_dir: str or Path, delete_existing=False) -> Result:
         """
@@ -76,7 +59,7 @@ class PythonDevLibrary(Dillable):
             if not result:
                 return result
             try:
-                os.symlink(self.library_path, deployed_target_path)
+                os.symlink(self.data_path, deployed_target_path)
             except OSError:
                 return Result(False, f'Error creating symlink to development library at {deployed_target_path}. If '
                                      f'you are using Windows, please try again with administrator privilege.')
@@ -87,39 +70,10 @@ class PythonDevLibrary(Dillable):
                 return Result(False, f'Error creating symlink to development library at {deployed_target_path}.')
         else:
             return Result(False, f'Error symlinking development library {self.name}. The library not found at '
-                                 f'{self.library_path}')
-
-    def verify(self) -> Result:
-        """
-        Verify whether the development library path exists.
-
-        :return: a Result object indicating whether the verification is successful
-        """
-        if self.library_path.exists():
-            return Result(True)
-        else:
-            return Result(False, f'Development library path {self.library_path} does not exist.')
+                                 f'{self.data_path}')
 
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name}'
-
-    def __eq__(self, other: 'PythonDevLibrary'):
-        """
-        The equality of 2 PythonDevLibrary objects is determined by the addon path instead of the instance itself. If the
-        instance equality is required, use compare_uuid() from Dillable class.
-
-        :param other: another PythonDevLibrary object
-
-        :return: True if the libray path of this instance is the same as the other instance, otherwise False
-        """
-        if issubclass(other.__class__, PythonDevLibrary):
-            return self.library_path == other.library_path
-        return False
-
-    def __hash__(self):
-        if self._hash is None:
-            self._hash = self.get_stable_hash(self.library_path.as_posix())
-        return self._hash
 
 
 class PythonDevLibraryManager:
@@ -132,17 +86,17 @@ class PythonDevLibraryManager:
         raise Exception('This class should not be instantiated.')
 
     @staticmethod
-    def create_python_dev_library(library_path: str or Path, library_name: str = None) -> Result:
+    def create(library_path: str or Path, name: str = None) -> Result:
         """
         Create a development PythonDevLibrary object with a custom name if supplied. It will return a Result object 
         indicating whether the creation is successful with the PythonDevLibrary object as the data if successful.
 
         :param library_path: a str or Path object of the path to the development library source code
-        :param library_name: a custom name of the development library, especially when the library name is not a unique
+        :param name: a custom name of the development library, especially when the library name is not a unique
                name such as "src" or "source"
 
         :return: a Result object indicating whether the creation is successful with the PythonDevLibrary object as the
                  data if successful
         """
-        blog(2, 'Creating a Blender development library instance...')
-        return PythonDevLibrary(library_path, library_name=library_name).create_instance()
+        blog(2, 'Creating a Python development library instance...')
+        return PythonDevLibrary(library_path, name=name).create_instance()

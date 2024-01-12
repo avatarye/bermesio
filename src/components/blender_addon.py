@@ -7,10 +7,11 @@ import zipfile
 
 from packaging.version import Version
 
-from commons.common import Result, blog, Dillable, SharedFunctions as SF
+from commons.common import Result, blog, SharedFunctions as SF
+from components.component import Component
 
 
-class BlenderAddon(Dillable):
+class BlenderAddon(Component):
     """
     A class representing a Blender addon with necessary information, including the addon name, version, Blender version,
     and description. It supports the Blender addons packed in the following ways:
@@ -56,7 +57,7 @@ class BlenderAddon(Dillable):
     # A name for the dev addon single file when deployed in Blender Addons path as a file symlink
     symlinked_single_file_name = 'unknown_addon.py'
 
-    def __init__(self, addon_path: str or Path, repo_dir=None, delete_existing=False):
+    def __init__(self, addon_path: str or Path):
         """
         Create a BlenderAddon object from the addon path. This is usually not directly called. The recommended way is to
         use BlenderAddonManager.create_blender_addon() to create a BlenderAddon object, which will automatically detect
@@ -66,10 +67,10 @@ class BlenderAddon(Dillable):
         :param repo_dir: A path to the addon repository, which is used to store the addon in the repository.
         :param delete_existing: A flag indicating if the existing addon in the repository should be deleted.
         """
-        super().__init__()
-        self.repo_storage = True
-        self.stored_in_repo = False
-        self.init_params = {'addon_path': addon_path, 'repo_dir': repo_dir, 'delete_existing': delete_existing}
+        super().__init__(addon_path)
+        self.dill_extension = '.dba'
+        self.if_store_in_repo = True
+        self.init_params = {'addon_path': addon_path}
 
     def _get_addon_init_file_content(self) -> str or None:
         """This method should be implemented in subclasses."""
@@ -101,24 +102,15 @@ class BlenderAddon(Dillable):
                         pass
         return None, None, None, None
 
-    def _store_in_repo(self, repo_dir: Path, delete_existing=False) -> Result:
-        """This method should be implemented in subclasses."""
-        raise NotImplementedError
-
     def create_instance(self) -> Result:
         """
-        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
-        the manager which handles the result returned by this method. Returning a Result object is the main reason for
-        using this method instead of __init__.
+        Create a BlenderAddon object based on an existing Blender addon path. This method will detect the addon type
+        and use the corresponding subclass to create the instance.
 
-        :return: a Result object indicating if the initialization is successful and the message generated during the
-                 initialization
+        :return: a Result object indicating if the initialization is successful, the message generated during the
+                 initialization, and this object if successful.
         """
-        addon_path = self.init_params['addon_path']
-        repo_dir = self.init_params['repo_dir']
-        delete_existing = self.init_params['delete_existing']
-        self.addon_path = Path(addon_path)
-        if self.addon_path.exists():
+        if self.data_path is not None:
             self.name, self.version, self.blender_version_min, self.description = self._get_addon_info()
             # At least name and version must be available to be a valid Blender addon
             if None not in [self.name, self.version]:
@@ -127,20 +119,16 @@ class BlenderAddon(Dillable):
                 # Use detected addon name to allow the input path named freely, such as "src" or "addon"
                 self.symlinked_dir_name = self.name.replace(" ", "_").lower()
                 # Use the original name for the single file addon to avoid confusion
-                self.symlinked_single_file_name = self.addon_path.name
-                if repo_dir:
-                    result = self._store_in_repo(repo_dir, delete_existing=delete_existing)
-                    if not result:
-                        return result
-                return Result(True, f'Created Blender addon from {self.addon_path}', self)
+                self.symlinked_single_file_name = self.data_path.name
+                return Result(True, f'Created Blender addon from {self.data_path}', self)
             else:
-                return Result(False, f'Error getting Blender addon information in {self.addon_path}')
+                return Result(False, f'Error getting Blender addon information in {self.data_path}')
         else:
-            return Result(False, f'Error creating Blender addon: {self.addon_path} does not exist')
+            return Result(False, f'Error creating Blender addon: {self.data_path} does not exist')
 
     # endregion
 
-    def deploy(self, deploy_dir: str or Path, delete_existing=False) -> Result:
+    def deploy(self, deploy_dir: str or Path, delete_existing: bool =False) -> Result:
         """
         Deploy this addon to target Blender addon directory. In case of non-development subclass, this method will
         unzip the addon zip to the target directory. Otherwise, it will create a symlink to the addon at the target
@@ -159,22 +147,33 @@ class BlenderAddon(Dillable):
                 deployed_target_path = deploy_dir / self.symlinked_dir_name
                 result = SF.ready_target_path(deployed_target_path, ensure_parent_dir=True,
                                               delete_existing=delete_existing)
-                if not result:
-                    return result
             elif isinstance(self, BlenderDevSingleFileAddon):
                 deployed_target_path = deploy_dir / self.symlinked_single_file_name
                 result = SF.ready_target_path(deployed_target_path, ensure_parent_dir=True,
                                               delete_existing=delete_existing)
-                if not result:
-                    return result
             else:
                 deployed_target_path = deploy_dir
+                # Get the unzipped directory name or file name and ready it for deployment
+                unzipped_path = None
+                with zipfile.ZipFile(self.data_path, 'r') as z:
+                    if len(z.namelist()) == 1:  # Single file addon
+                        unzipped_path = deployed_target_path / Path(z.namelist()[0]).name
+                    else:  # Non-single file addon
+                        for file in z.namelist():
+                            if '/' in file:
+                                unzipped_path = deployed_target_path / file.split('/')[0]
+                                break
+                if unzipped_path is None:
+                    return Result(False, f'Error deploying addon to {deploy_dir}: addon zip appears to be invalid')
+                result = SF.ready_target_path(unzipped_path, ensure_parent_dir=True, delete_existing=delete_existing)
+            if not result:
+                return result
             # All non-development addons will be deployed in the same way, which is to unzip the addon zip stored in the
             # repository to the target directory.
             if isinstance(self, BlenderDevDirectoryAddon) or isinstance(self, BlenderDevSingleFileAddon):
                 # Create a symlink to the addon at the deploy_dir
                 try:
-                    os.symlink(self.addon_path, deployed_target_path)
+                    os.symlink(self.data_path, deployed_target_path)
                 except OSError:
                     return Result(False, f'Error creating symlink to addon at {deployed_target_path}. If you are using '
                                          f'Windows, please try again with administrator privilege.')
@@ -186,7 +185,7 @@ class BlenderAddon(Dillable):
             elif (isinstance(self, BlenderZippedAddon) or isinstance(self, BlenderDirectoryAddon)
                     or isinstance(self, BlenderSingleFileAddon)):
                 # Unzip this addon into the custom_addon_dir
-                with zipfile.ZipFile(self.addon_path, 'r') as zip_ref:
+                with zipfile.ZipFile(self.data_path, 'r') as zip_ref:
                     zip_ref.extractall(deployed_target_path)
                 if deployed_target_path.exists():
                     blog(2, f'Deployed addon {self.repo_name} to {deployed_target_path} successfully')
@@ -196,36 +195,25 @@ class BlenderAddon(Dillable):
             else:
                 raise NotImplementedError(f'Addon type {self.__class__} is not supported')
         else:
-            return Result(False, f'Error deploying addon to {deploy_dir}. Addon not found at {self.addon_path}')
-
-    def verify(self) -> bool:
-        """
-        Verify if the Blender addon path exists.
-
-        :return: True if the addon path exists, otherwise False
-        """
-        return self.addon_path.exists()
+            return Result(False, f'Error deploying addon to {deploy_dir}. Addon not found at {self.data_path}')
 
     def __str__(self):
-        return f'{self.__class__.__name__}: {self.name}'
+        return f'{self.__class__.__name__}: {self.name} {self.version}'
 
     def __eq__(self, other: 'BlenderAddon'):
         """
-        The equality of 2 BlenderAddon objects is determined by the addon path instead of the instance itself. If the
-        instance equality is required, use compare_uuid() from Dillable class.
+        The equality of 2 BlenderAddon objects is determined by the addon name plus version.
 
         :param other: another BlenderAddon object
 
-        :return: True if the addon path of this addon is the same as the other addon, otherwise False
+        :return: True if equal, otherwise False
         """
         if issubclass(other.__class__, BlenderAddon):
-            return self.addon_path == other.addon_path
+            return f'{self.name}|{self.version}' == f'{other.name}|{other.version}'
         return False
 
     def __hash__(self):
-        if self._hash is None:
-            self._hash = self.get_stable_hash(self.addon_path.as_posix())
-        return self._hash
+        return self.get_stable_hash(f'{self.name}|{self.version}')
 
 
 class BlenderReleasedAddon(BlenderAddon):
@@ -233,7 +221,7 @@ class BlenderReleasedAddon(BlenderAddon):
     This is an intermediary class simply serves as a grouping purpose. It is inherited by BlenderZippedAddon,
     BlenderDirectoryAddon, and BlenderSingleFileAddon.
     """
-    pass
+    ...
 
 
 class BlenderZippedAddon(BlenderReleasedAddon):
@@ -244,16 +232,14 @@ class BlenderZippedAddon(BlenderReleasedAddon):
     recognized by Blender as a valid addon.
     """
 
-    def __init__(self, addon_path, repo_dir=None, delete_existing=False):
+    def __init__(self, addon_path: str or Path):
         """
         Create a BlenderZippedAddon object from the addon path.
 
         :param addon_path: a path to the addon, which must be a zip file
-        :param repo_dir: a path to the addon repository, which is used to store the addon in the repository
-        :param delete_existing: flag indicating if the existing addon in the repository should be deleted
         """
         self.is_single_file_addon, self.if_rezip = False, False
-        super().__init__(addon_path, repo_dir=repo_dir, delete_existing=delete_existing)
+        super().__init__(addon_path)
 
     def _get_addon_init_file_content(self) -> str or None:
         """
@@ -275,7 +261,7 @@ class BlenderZippedAddon(BlenderReleasedAddon):
             with zip_filestream.open(in_zip_file, 'r') as zf:
                 return zf.read().decode('utf-8')
 
-        with zipfile.ZipFile(self.addon_path, 'r') as z:
+        with zipfile.ZipFile(self.data_path, 'r') as z:
             zipped_files = [name for name in z.namelist() if not name.endswith('/') and not name.endswith('\\')]
             # Zipped single-file addon
             if len(zipped_files) == 1 and zipped_files[0].endswith('.py') \
@@ -302,7 +288,7 @@ class BlenderZippedAddon(BlenderReleasedAddon):
                     return get_zipped_file_content(z, init_files[0])
         return None
 
-    def _store_in_repo(self, repo_dir, delete_existing=False) -> Result:
+    def store_in_repo(self, repo_dir: str or Path, delete_existing: bool =False) -> Result:
         """
         Store the addon in the addon repository. Either copy or rezip the addon to the repository depending on the
         addon type and in-zip file structure.
@@ -343,13 +329,13 @@ class BlenderZippedAddon(BlenderReleasedAddon):
         if not repo_addon_path.exists():
             try:
                 if self.if_rezip:
-                    rezip(self.addon_path, repo_addon_path, self.symlinked_dir_name)
+                    rezip(self.data_path, repo_addon_path, self.symlinked_dir_name)
                 else:
-                    shutil.copy(self.addon_path, repo_addon_path)
+                    shutil.copy(self.data_path, repo_addon_path)
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
-                self.addon_path = repo_addon_path
+                self.data_path = repo_addon_path
                 return Result(True)
             else:
                 return Result(False, f'Error copying addon to {repo_addon_path}')
@@ -364,19 +350,17 @@ class BlenderDirectoryAddon(BlenderReleasedAddon):
     file. It only accepts a directory with a __init__.py file in it or a single Python file with bl_info in it.
     """
 
-    def __init__(self, addon_path, repo_dir=None, delete_existing=False):
+    def __init__(self, addon_path: str or Path):
         """
         Create a BlenderDirectoryAddon object from the addon path.
 
         :param addon_path: a path to the addon, which must be a directory
-        :param repo_dir: a path to the addon repository, which is used to store the addon in the repository
-        :param delete_existing: a flag indicating if the existing addon in the repository should be deleted
         """
         self.is_single_file_addon = False
-        super().__init__(addon_path, repo_dir=repo_dir, delete_existing=delete_existing)
+        super().__init__(addon_path)
 
     def _get_addon_init_file_content(self) -> str or None:
-        files = list(self.addon_path.iterdir())
+        files = list(self.data_path.iterdir())
         # Search for the single-file Python addon file at top level
         if len(files) == 1 and files[0].name.endswith('.py') and files[0].name != '__init__.py':
             self.is_single_file_addon = True
@@ -384,13 +368,13 @@ class BlenderDirectoryAddon(BlenderReleasedAddon):
         # Search for the __init__.py file at top level
         elif '__init__.py' in [f.name for f in files]:
             self.is_single_file_addon = False
-            addon_entry_file_path = self.addon_path / '__init__.py'
+            addon_entry_file_path = self.data_path / '__init__.py'
         else:
             return None
         with open(addon_entry_file_path, encoding='utf-8') as f:
             return f.read()
 
-    def _store_in_repo(self, repo_dir, delete_existing=False) -> Result:
+    def store_in_repo(self, repo_dir: str or Path, delete_existing: bool =False) -> Result:
         """
         Store the addon in the addon repository. Zip the addon to the repository depending on the addon type.
 
@@ -408,19 +392,19 @@ class BlenderDirectoryAddon(BlenderReleasedAddon):
                 # If a regular addon directory, zip it with the top level directory name.
                 if not self.is_single_file_addon:
                     with zipfile.ZipFile(repo_addon_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                        for item in self.addon_path.glob('**/*'):
+                        for item in self.data_path.glob('**/*'):
                             if item.is_file():
                                 zipf.write(item,
-                                           arcname=f'{self.symlinked_dir_name}/{item.relative_to(self.addon_path)}')
+                                           arcname=f'{self.symlinked_dir_name}/{item.relative_to(self.data_path)}')
                 # If a single-file addon directory, zip it directly.
                 else:
-                    files = [f.name for f in self.addon_path.iterdir()]
+                    files = [f.name for f in self.data_path.iterdir()]
                     with zipfile.ZipFile(repo_addon_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                        zipf.write(self.addon_path / files[0], arcname=files[0])
+                        zipf.write(self.data_path / files[0], arcname=files[0])
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
-                self.addon_path = repo_addon_path
+                self.data_path = repo_addon_path
                 return Result(True)
         else:
             Result(False, f'Error copying addon to {repo_addon_path}')
@@ -432,14 +416,19 @@ class BlenderSingleFileAddon(BlenderReleasedAddon):
     addon name, version, Blender version, and description.
     """
 
-    def __init__(self, addon_path, repo_dir=None, delete_existing=False):
-        super().__init__(addon_path, repo_dir=repo_dir, delete_existing=delete_existing)
+    def __init__(self, addon_path: str or Path):
+        """
+        Create a BlenderSingleFileAddon object from the addon path.
+
+        :param addon_path: a path to the addon, which must be a single Python file
+        """
+        super().__init__(addon_path)
 
     def _get_addon_init_file_content(self) -> str or None:
-        with open(self.addon_path, encoding='utf-8') as f:
+        with open(self.data_path, encoding='utf-8') as f:
             return f.read()
 
-    def _store_in_repo(self, repo_dir, delete_existing=False) -> Result:
+    def store_in_repo(self, repo_dir: str or Path, delete_existing: bool =False) -> Result:
         repo_addon_path = Path(repo_dir) / self.repo_zip_file_name
         result = SF.ready_target_path(repo_addon_path, ensure_parent_dir=True, delete_existing=delete_existing)
         if not result:
@@ -447,11 +436,11 @@ class BlenderSingleFileAddon(BlenderReleasedAddon):
         if not repo_addon_path.exists():
             try:
                 with zipfile.ZipFile(repo_addon_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                    zipf.write(self.addon_path, arcname=self.addon_path.name)
+                    zipf.write(self.data_path, arcname=self.data_path.name)
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
-                self.addon_path = repo_addon_path
+                self.data_path = repo_addon_path
                 return Result(True)
             else:
                 return Result(False, f'Error copying addon to {repo_addon_path}')
@@ -462,10 +451,13 @@ class BlenderDevAddon(BlenderAddon):
     This is an intermediary class simply serves as a grouping purpose. It is inherited BlenderDevDirectoryAddon, and
     BlenderDevSingleFileAddon.
     """
+
     def __init__(self, addon_path: str or Path):
-        self.repo_storage = False
-        self.stored_in_repo = False
-        super().__init__(addon_path, repo_dir=False, delete_existing=False)
+        self.if_store_in_repo = False
+        super().__init__(addon_path)
+
+    def store_in_repo(self, repo_dir: str or Path, delete_existing: bool =False) -> Result:
+        raise NotImplementedError('BlenderDevAddon cannot be stored in a repo')
 
 
 class BlenderDevDirectoryAddon(BlenderDevAddon):
@@ -477,16 +469,28 @@ class BlenderDevDirectoryAddon(BlenderDevAddon):
     the use of arbitrary directory names, such as "src" or "addon".
     """
 
-    def __init__(self, addon_path):
+    def __init__(self, addon_path: str or Path):
         """
         Create a BlenderDevDirectoryAddon object from the addon path.
 
         :param addon_path: a path to the addon, which must be a directory
         """
-        super().__init__(addon_path, repo_dir=False, delete_existing=False)
+        super().__init__(addon_path)
 
-    def _store_in_repo(self, repo_dir, delete_existing=False):
-        raise NotImplementedError('BlenderDevAddon cannot be stored in a repo')
+    def _get_addon_init_file_content(self) -> str or None:
+        files = list(self.data_path.iterdir())
+        # Search for the single-file Python addon file at top level
+        if len(files) == 1 and files[0].name.endswith('.py') and files[0].name != '__init__.py':
+            self.is_single_file_addon = True
+            addon_entry_file_path = files[0]
+        # Search for the __init__.py file at top level
+        elif '__init__.py' in [f.name for f in files]:
+            self.is_single_file_addon = False
+            addon_entry_file_path = self.data_path / '__init__.py'
+        else:
+            return None
+        with open(addon_entry_file_path, encoding='utf-8') as f:
+            return f.read()
 
 
 class BlenderDevSingleFileAddon(BlenderDevAddon):
@@ -496,16 +500,17 @@ class BlenderDevSingleFileAddon(BlenderDevAddon):
     hence this class inherits from BlenderSingleFileAddon.
     """
 
-    def __init__(self, addon_path):
+    def __init__(self, addon_path: str or Path):
         """
         Create a BlenderDevDirectoryAddon object from the addon path.
 
         :param addon_path: a path to the addon, which must be a directory
         """
-        super().__init__(addon_path, repo_dir=False, delete_existing=False)
+        super().__init__(addon_path)
 
-    def _store_in_repo(self, repo_dir, delete_existing=False):
-        raise NotImplementedError('BlenderDevAddon cannot be stored in a repo')
+    def _get_addon_init_file_content(self) -> str or None:
+        with open(self.data_path, encoding='utf-8') as f:
+            return f.read()
 
 
 class BlenderAddonManager:
@@ -610,14 +615,12 @@ class BlenderAddonManager:
         return Result(False, f'Addon not found at {addon_path}.')
 
     @staticmethod
-    def create_blender_addon(addon_path: str or Path, repo_dir=None, delete_existing=False) -> Result:
+    def create_blender_addon(addon_path: str or Path) -> Result:
         """
         Create a BlenderAddon object from the addon path. It will automatically detect the addon type and use the
         corresponding subclass. It will return a Result object with the created BlenderAddon object in its data field.
 
         :param addon_path: a path to the addon, which can be a zip file, a directory, or a single Python file.
-        :param repo_dir: a path to the addon repository, which is used to store the addon in the repository
-        :param delete_existing: a flag indicating if the existing addon in the repository should be deleted
 
         :return: a Result object with the created BlenderAddon object in its data field
         """
@@ -626,8 +629,7 @@ class BlenderAddonManager:
         if result:
             blog(2, f'Creating a {result.data.__name__} instance...')
             addon_class = result.data
-            return addon_class(addon_path, repo_dir=repo_dir,
-                               delete_existing=delete_existing).create_instance()
+            return addon_class(addon_path).create_instance()
         else:
             return result
 

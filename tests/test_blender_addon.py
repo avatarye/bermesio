@@ -1,208 +1,146 @@
 from pathlib import Path
+from zipfile import ZipFile
 
 from packaging.version import Version
 import shutil
 
-from components.blender_addon import (BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon,
-                                      BlenderDevDirectoryAddon, BlenderDevSingleFileAddon, BlenderAddonManager)
+from components.blender_addon import BlenderAddonManager
 
-from testing_common import TESTDATA, is_dillable
+from testing_common import TESTDATA, is_dillable, get_repo
 
 
-def test_blender_zipped_addon_class():
-    copy_to_dir = Path(__file__).parent / 'test_blender_addon'
-    deploy_to_dir = Path(__file__).parent / 'test_blender_addon' /'deploy'
-    # Scenario 1: addon_path is a zip file
-    addon_path = Path(TESTDATA['blender_addon|zip|path'])
-    result = BlenderAddonManager.create_blender_addon(addon_path, repo_dir=copy_to_dir)
-    assert result, 'BlenderAddonManager should be able to create BlenderZippedAddon'
+def test_blender_released_addon_classes():
+    repo = get_repo()
+    deploy_dir = Path(TESTDATA['temp_dir']) / 'deploy'
+    if deploy_dir.exists():
+        shutil.rmtree(deploy_dir)
+
+    # Test non-single-file addon
+    test_addon_jsons = [TESTDATA['blender_addon|zip'], TESTDATA['blender_addon|zip_no_top_dir'],
+                        TESTDATA['blender_addon|dir']]
+    for test_addon_json in test_addon_jsons:
+        # Test creating addon
+        result = BlenderAddonManager.create_blender_addon(test_addon_json['path'])
+        assert result, 'BlenderAddonManager should be able to create a BlenderAddon object'
+        addon = result.data
+        result = repo.add_component(addon)
+        assert result, 'Error adding BlenderAddon to repo'
+        # Test BlenderAddon attributes
+        assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
+        assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'
+        assert addon.blender_version_min == Version(test_addon_json['blender_version_min']), \
+            'BlenderAddon blender_version_min does not match'
+        assert addon.description == test_addon_json['description'], \
+            'BlenderAddon description does not match'
+        # Test copying addon
+        for addon in repo.blender_addon_repo.pool.values():
+            assert addon.data_path.exists(), 'BlenderAddon data path not copied to repo'
+        with ZipFile(addon.data_path, 'r') as z:
+            init_files = [f for f in z.namelist() if f.endswith('__init__.py')]
+            assert all(['/' in f or '\\' in f for f in init_files]), 'Addon should have top dir'
+        # Test deploying addon
+        result = addon.deploy(deploy_dir)
+        assert result, 'Error deploying BlenderAddon as a symlink'
+        deployed_addon_path = deploy_dir / addon.name
+        assert deployed_addon_path.exists(), 'Zipped addon should be deployed to deploy dir'
+        repo.remove_component(addon)
+        assert len(repo.blender_addon_repo.pool) == 0, 'BlenderAddon should be removed from repo'
+        if deployed_addon_path.is_dir():
+            shutil.rmtree(deployed_addon_path)
+        else:
+            deployed_addon_path.unlink()
+
+        assert is_dillable(addon), 'BlenderAddon should be dillable'
+
+    # Test single-file addon
+    test_addon_jsons = [TESTDATA['blender_addon|single_file_zip'],
+                        TESTDATA['blender_addon|single_file_zip_one_level_down'],
+                        TESTDATA['blender_addon|single_file_dir']]
+    for test_addon_json in test_addon_jsons:
+        # Test creating addon
+        result = BlenderAddonManager.create_blender_addon(test_addon_json['path'])
+        assert result, 'BlenderAddonManager should be able to create a BlenderAddon object'
+        addon = result.data
+        result = repo.add_component(addon)
+        assert result, 'Error adding BlenderAddon to repo'
+        # Test BlenderAddon attributes
+        assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
+        assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'
+        assert addon.blender_version_min == Version(test_addon_json['blender_version_min']), \
+            'BlenderAddon blender_version_min does not match'
+        assert addon.description == test_addon_json['description'], \
+            'BlenderAddon description does not match'
+        # Test copying addon
+        for addon in repo.blender_addon_repo.pool.values():
+            assert addon.data_path.exists(), 'BlenderAddon data path not copied to repo'
+        with ZipFile(addon.data_path, 'r') as z:
+            assert len(z.namelist()) == 1, 'Single-file addon should have only one file'
+            assert '/' not in z.namelist()[0] and '\\' not in z.namelist()[0], \
+                'Single-file addon should not have top dir'
+            addon_py_file = Path(z.namelist()[0])
+        # Test deploying addon
+        result = addon.deploy(deploy_dir)
+        assert result, 'Error deploying BlenderAddon as a symlink'
+        deployed_addon_path = deploy_dir / addon_py_file.name
+        assert deployed_addon_path.exists(), 'Zipped addon should be deployed to deploy dir'
+        repo.remove_component(addon)
+        assert len(repo.blender_addon_repo.pool) == 0, 'BlenderAddon should be removed from repo'
+        if deployed_addon_path.is_dir():
+            shutil.rmtree(deployed_addon_path)
+        else:
+            deployed_addon_path.unlink()
+
+        assert is_dillable(addon), 'BlenderAddon should be dillable'
+
+
+def test_blender_dev_addon_classes():
+    repo = get_repo()
+    deploy_dir = Path(TESTDATA['temp_dir']) / 'deploy'
+    if deploy_dir.exists():
+        shutil.rmtree(deploy_dir)
+
+    # Test non-single-file addon
+    test_addon_json = TESTDATA['blender_dev_addon|dir']
+    # Test creating addon
+    result = BlenderAddonManager.create_blender_dev_addon(test_addon_json['path'])
+    assert result, 'BlenderAddonManager should be able to create a BlenderAddon object'
     addon = result.data
-    assert addon.name == TESTDATA['blender_addon|zip|name']
-    assert addon.version == Version(TESTDATA['blender_addon|zip|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|zip|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|zip|description']
-    copied_addon_path = copy_to_dir / addon.repo_zip_file_name
-    assert copied_addon_path.exists(), 'BlenderZippedAddon should be able to copy itself to a directory'
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.is_dir()]
-    assert len(deployed_addon_paths) == 1, 'BlenderZippedAddon should be able to deploy itself to a directory'
-    assert is_dillable(addon), 'BlenderZippedAddon should be picklable'
-    if copied_addon_path.exists():
-        shutil.rmtree(copied_addon_path.parent)
+    result = repo.add_component(addon)
+    assert result, 'Error adding BlenderAddon to repo'
+    # Test BlenderAddon attributes
+    assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
+    assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'
+    assert addon.blender_version_min == Version(test_addon_json['blender_version_min']), \
+        'BlenderAddon blender_version_min does not match'
+    assert addon.description == test_addon_json['description'], \
+        'BlenderAddon description does not match'
+    # Test deploying addon
+    result = addon.deploy(deploy_dir)
+    assert result, 'Error deploying BlenderAddon as a symlink'
+    deployed_addon_path = deploy_dir / addon.symlinked_dir_name
+    assert deployed_addon_path.exists(), 'Addon should be deployed to deploy dir'
 
-    # Scenario 2: addon_path is a zip file without a top dir
-    addon_path = Path(TESTDATA['blender_addon|zip_no_top_dir|path'])
-    result = BlenderAddonManager.create_blender_addon(addon_path, repo_dir=copy_to_dir)
-    assert result, 'BlenderAddonManager should be able to create BlenderZippedAddon'
+    assert is_dillable(addon), 'BlenderAddon should be dillable'
+
+    # Test single-file addon
+    test_addon_json = TESTDATA['blender_dev_addon|single_file']
+    # Test creating addon
+    result = BlenderAddonManager.create_blender_dev_addon(test_addon_json['path'])
+    assert result, 'BlenderAddonManager should be able to create a BlenderAddon object'
     addon = result.data
-    assert addon.name == TESTDATA['blender_addon|zip_no_top_dir|name']
-    assert addon.version == Version(TESTDATA['blender_addon|zip_no_top_dir|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|zip_no_top_dir|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|zip_no_top_dir|description']
-    copied_addon_path = copy_to_dir / addon.repo_zip_file_name
-    assert copied_addon_path.exists(), 'BlenderZippedAddon should be able to copy itself to a directory'
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.is_dir()]
-    assert len(deployed_addon_paths) == 1, 'BlenderZippedAddon should be able to deploy itself to a directory'
-    assert is_dillable(addon), 'BlenderZippedAddon should be picklable'
-    if copied_addon_path.exists():
-        shutil.rmtree(copied_addon_path.parent)
+    result = repo.add_component(addon)
+    assert result, 'Error adding BlenderAddon to repo'
+    # Test BlenderAddon attributes
+    assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
+    assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'
+    assert addon.blender_version_min == Version(test_addon_json['blender_version_min']), \
+        'BlenderAddon blender_version_min does not match'
+    assert addon.description == test_addon_json['description'], \
+        'BlenderAddon description does not match'
+    # Test deploying addon
+    result = addon.deploy(deploy_dir)
+    assert result, 'Error deploying BlenderAddon as a symlink'
+    deployed_addon_path = deploy_dir / addon.symlinked_single_file_name
+    assert deployed_addon_path.exists(), 'Addon should be deployed to deploy dir'
 
-    # Scenario 3: addon_path is a single file zip file
-    addon_path = Path(TESTDATA['blender_addon|single_file_zip|path'])
-    result = BlenderAddonManager.create_blender_addon(addon_path, repo_dir=copy_to_dir)
-    assert result, 'BlenderAddonManager should be able to create BlenderZippedAddon'
-    addon = result.data
-    assert addon.name == TESTDATA['blender_addon|single_file_zip|name']
-    assert addon.version == Version(TESTDATA['blender_addon|single_file_zip|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|single_file_zip|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|single_file_zip|description']
-    copied_addon_path = copy_to_dir / addon.repo_zip_file_name
-    assert copied_addon_path.exists(), 'BlenderZippedAddon should be able to copy itself to a directory'
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.suffix == '.py']
-    assert len(deployed_addon_paths) == 1, 'BlenderZippedAddon should be able to deploy itself to a directory'
-    assert is_dillable(addon), 'BlenderZippedAddon should be picklable'
-    if copied_addon_path.exists():
-        shutil.rmtree(copied_addon_path.parent)
-
-    # Scenario 4: addon_path is a single file zip file with the file at one level down
-    addon_path = Path(TESTDATA['blender_addon|single_file_zip_one_level_down|path'])
-    result = BlenderAddonManager.create_blender_addon(addon_path, repo_dir=copy_to_dir)
-    assert result, 'BlenderAddonManager should be able to create BlenderZippedAddon'
-    addon = result.data
-    assert addon.name == TESTDATA['blender_addon|single_file_zip_one_level_down|name']
-    assert addon.version == Version(TESTDATA['blender_addon|single_file_zip_one_level_down|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|single_file_zip_one_level_down|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|single_file_zip_one_level_down|description']
-    copied_addon_path = copy_to_dir / addon.repo_zip_file_name
-    assert copied_addon_path.exists(), 'BlenderZippedAddon should be able to copy itself to a directory'
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.suffix == '.py']
-    assert len(deployed_addon_paths) == 1, 'BlenderZippedAddon should be able to deploy itself to a directory'
-    assert is_dillable(addon), 'BlenderZippedAddon should be picklable'
-    if copied_addon_path.exists():
-        shutil.rmtree(copied_addon_path.parent)
-
-
-def test_blender_directory_addon_class():
-    copy_to_dir = Path(__file__).parent / 'test_blender_addon'
-    deploy_to_dir = Path(__file__).parent / 'test_blender_addon' /'deploy'
-    # Scenario 1: addon_path is a regular addon
-    addon_path = Path(TESTDATA['blender_addon|dir|path'])
-    result = BlenderAddonManager.create_blender_addon(addon_path, repo_dir=copy_to_dir)
-    assert result, 'BlenderAddonManager should be able to create BlenderDirectoryAddon'
-    addon = result.data
-    assert addon.name == TESTDATA['blender_addon|dir|name']
-    assert addon.version == Version(TESTDATA['blender_addon|dir|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|dir|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|dir|description']
-    copied_addon_path = copy_to_dir / addon.repo_zip_file_name
-    assert copied_addon_path.exists(), 'BlenderDirectoryAddon should be able to copy itself to a directory'
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.is_dir()]
-    assert len(deployed_addon_paths) == 1, 'BlenderZippedAddon should be able to deploy itself to a directory'
-    assert is_dillable(addon), 'BlenderDirectoryAddon should be picklable'
-    if copied_addon_path.exists():
-        shutil.rmtree(copied_addon_path.parent)
-
-    # Scenario 2: addon_path is a single-file addon
-    addon_path = Path(TESTDATA['blender_addon|single_file_dir|path'])
-    result = BlenderAddonManager.create_blender_addon(addon_path, repo_dir=copy_to_dir)
-    assert result, 'BlenderAddonManager should be able to create BlenderDirectoryAddon'
-    addon = result.data
-    assert addon.name == TESTDATA['blender_addon|single_file_dir|name']
-    assert addon.version == Version(TESTDATA['blender_addon|single_file_dir|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|single_file_dir|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|single_file_dir|description']
-    copied_addon_path = copy_to_dir / addon.repo_zip_file_name
-    assert copied_addon_path.exists(), 'BlenderDirectoryAddon should be able to copy itself to a directory'
-    assert addon.addon_path == copied_addon_path
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.suffix == '.py']
-    assert len(deployed_addon_paths) == 1, 'BlenderDirectoryAddon should be able to deploy itself to a directory'
-    assert is_dillable(addon), 'BlenderDirectoryAddon should be picklable'
-    if copied_addon_path.exists():
-        shutil.rmtree(copied_addon_path.parent)
-
-
-def test_blender_single_file_addon_class():
-    copy_to_dir = Path(__file__).parent / 'test_blender_addon'
-    deploy_to_dir = Path(__file__).parent / 'test_blender_addon' /'deploy'
-    addon_path = Path(TESTDATA['blender_addon|single_file|path'])
-    result = BlenderAddonManager.create_blender_addon(addon_path, repo_dir=copy_to_dir)
-    assert result, 'BlenderAddonManager should be able to create BlenderSingleFileAddon'
-    addon = result.data
-    assert addon.name == TESTDATA['blender_addon|single_file|name']
-    assert addon.version == Version(TESTDATA['blender_addon|single_file|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|single_file|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|single_file|description']
-    copied_addon_path = copy_to_dir / addon.repo_zip_file_name
-    assert copied_addon_path.exists(), 'BlenderSingleFileAddon should be able to copy itself to a directory'
-    assert addon.addon_path == copied_addon_path
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.suffix == '.py']
-    assert len(deployed_addon_paths) == 1, 'BlenderSingleFileAddon should be able to deploy itself to a directory'
-    assert is_dillable(addon), 'BlenderSingleFileAddon should be picklable'
-    if copied_addon_path.exists():
-        shutil.rmtree(copied_addon_path.parent)
-
-
-def test_blender_dev_directory_addon_class():
-    deploy_to_dir = Path(__file__).parent / 'test_blender_addon' /'deploy'
-
-    addon_path = Path(TESTDATA['blender_addon|dev_dir|path'])
-    result = BlenderAddonManager.create_blender_dev_addon(addon_path)
-    assert result, 'BlenderAddonManager should be able to create BlenderDevDirectoryAddon'
-    addon = result.data
-    assert addon.name == TESTDATA['blender_addon|dev_dir|name']
-    assert addon.version == Version(TESTDATA['blender_addon|dev_dir|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|dev_dir|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|dev_dir|description']
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.is_dir()]
-    assert len(deployed_addon_paths) == 1, 'BlenderZippedAddon should be able to symlink to a directory'
-    assert is_dillable(addon), 'BlenderDevDirectoryAddon should be picklable'
-    if deploy_to_dir.exists():
-        shutil.rmtree(deploy_to_dir.parent)
-
-
-def test_blender_dev_single_file_addon_class():
-    deploy_to_dir = Path(__file__).parent / 'test_blender_addon' /'deploy'
-
-    addon_path = Path(TESTDATA['blender_addon|single_file|path'])
-    result = BlenderAddonManager.create_blender_dev_addon(addon_path)
-    assert result, 'BlenderAddonManager should be able to create BlenderDevSingleFileAddon'
-    addon = result.data
-    assert addon.name == TESTDATA['blender_addon|single_file|name']
-    assert addon.version == Version(TESTDATA['blender_addon|single_file|version'])
-    assert addon.blender_version_min == Version(TESTDATA['blender_addon|single_file|blender_version_min'])
-    assert addon.description == TESTDATA['blender_addon|single_file|description']
-    addon.deploy(deploy_to_dir)
-    deployed_addon_paths = [f for f in deploy_to_dir.iterdir() if f.is_file()]
-    assert len(deployed_addon_paths) == 1, 'BlenderDevSingleFileAddon should be able to symlink to a file'
-    assert is_dillable(addon), 'BlenderDevSingleFileAddon should be picklable'
-    if deploy_to_dir.exists():
-        shutil.rmtree(deploy_to_dir.parent)
-
-
-def test_blender_addon_manager_class():
-    # Regular addon types
-    result = BlenderAddonManager.detect_addon_type(Path(TESTDATA['blender_addon|zip|path']))
-    assert result and result.data == BlenderZippedAddon, 'detect_addon_type should return BlenderZippedAddon'
-    result = BlenderAddonManager.detect_addon_type(Path(TESTDATA['blender_addon|dir|path']))
-    assert result and result.data == BlenderDirectoryAddon, 'detect_addon_type should return BlenderDirectoryAddon'
-    result = BlenderAddonManager.detect_addon_type(Path(TESTDATA['blender_addon|single_file_dir|path']))
-    assert result and result.data == BlenderDirectoryAddon, 'detect_addon_type should return BlenderDirectoryAddon'
-    result = BlenderAddonManager.detect_addon_type(Path(TESTDATA['blender_addon|zip_no_top_dir|path']))
-    assert result and result.data == BlenderZippedAddon, 'detect_addon_type should return BlenderZippedAddon'
-    result = BlenderAddonManager.detect_addon_type(Path(TESTDATA['blender_addon|single_file_zip|path']))
-    assert result and result.data == BlenderZippedAddon, 'detect_addon_type should return BlenderZippedAddon'
-    result = BlenderAddonManager.detect_addon_type(Path(TESTDATA['blender_addon|single_file|path']))
-    assert result and result.data == BlenderSingleFileAddon, 'detect_addon_type should return BlenderSingleFileAddon'
-
-    # Dev addon types
-    result = BlenderAddonManager.detect_dev_addon_type(Path(TESTDATA['blender_addon|dev_dir|path']))
-    assert result and result.data == BlenderDevDirectoryAddon, 'detect_addon_type should return BlenderDevDirectoryAddon'
-    result = BlenderAddonManager.detect_dev_addon_type(Path(TESTDATA['blender_addon|single_file|path']))
-    assert result and result.data == BlenderDevSingleFileAddon, 'detect_addon_type should return BlenderDevSingleFileAddon'
+    assert is_dillable(addon), 'BlenderAddon should be dillable'

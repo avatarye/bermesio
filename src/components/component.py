@@ -52,7 +52,10 @@ class Component(Dillable):
         """
         if self.if_store_in_repo:
             if Config.repo_dir not in self.data_path.parents:
-                repo_path = Path(repo_dir) / self.name
+                if self.data_path.is_dir():
+                    repo_path = Path(repo_dir) / self.name  # Use the component name as the directory name
+                else:
+                    repo_path = Path(repo_dir) / self.data_path.name  # Preserve the original file name
                 result = SF.ready_target_path(repo_path)
                 if not result:
                     return result
