@@ -3,11 +3,12 @@ import os
 from pathlib import Path
 import shutil
 
-from commons.common import Result, blog, Dillable, SharedFunctions as SF
+from commons.common import Result, blog, SharedFunctions as SF
+from components.component import Component
 from config import Config
 
 
-class BlenderScript(Dillable):
+class BlenderScript(Component):
     """
     A base class representing a Blender script, which is always a single arbitrary Python script.
     """
@@ -19,24 +20,21 @@ class BlenderScript(Dillable):
 
     def __init__(self, script_path: str or Path):
         """
-        Initialize a BlenderScript object with a script path. If the script path is valid, the script will be copied to
-        the repo_dir if it is given.
+        Initialize a BlenderScript object with a script path.
 
-        :param script_path: a Path object of the script path
+        :param script_path: a str or Path object of the script path
         """
-        super().__init__()
-        self.repo_storage = True
-        self.stored_in_repo = False
+        super().__init__(script_path)
+        self.dill_extension = '.dbs'
+        self.if_store_in_repo = True
         self.init_params = {'script_path': script_path}
 
     def create_instance(self) -> Result:
         """
-        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
-        the manager which handles the result returned by this method. Returning a Result object is the main reason for
-        using this method instead of __init__.
+        Create a BlenderScript object based on the script path.
 
         :return: a Result object indicating if the initialization is successful and the message generated during the
-                 initialization
+                 initialization, and this object if successful.
         """
         script_path = self.init_params['script_path']
         self.script_path = Path(script_path)

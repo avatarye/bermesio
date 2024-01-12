@@ -7,7 +7,7 @@ import virtualenv
 
 from commons.common import Result, blog, SharedFunctions as SF
 from commons.command import run_command
-from components.blender_program import BlenderProgram
+from components.blender_program import BlenderProgram, BlenderProgramManager
 from components.component import Component
 from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonPackageSet
 from components.python_dev_library import PythonDevLibrary
@@ -31,56 +31,18 @@ class BlenderVenv(Component):
     # Path for the pth file managed by this venv
     venv_managed_packages_pth_path = Path(f'Lib/site-packages/_{Config.app_name.lower()}_managed_packages.pth')
 
-    def __init__(self, blender_venv_path):
-        super().__init__()
-        self.repo_storage = True
-        self.stored_in_repo = False
-        self.platform = sys.platform  # OS platform
-        self.init_params = {'blender_venv_path': blender_venv_path}
-
-    def _get_blender_venv_config(self) -> dict:
+    def __init__(self, blender_venv_abs_path: str or Path, name: str = None):
         """
-        Get the Blender virtual environment config file's content as a dictionary.
+        Initialize a BlenderVenv object based on an existing Blender virtual environment directory.
 
-        :return: a dictionary of the Blender virtual environment config file's content
+        :param blender_venv_abs_path: a str or Path object of the Blender virtual environment directory path, must be
+                                      an absolute path
+        :param name: a custom name for the Blender virtual environment from the user input
         """
-        cgf_path = self.venv_path / 'pyvenv.cfg'
-        if cgf_path.exists():
-            cgf_dict = {}
-            with open(cgf_path) as f:
-                lines = f.readlines()
-            for line in lines:
-                if '=' in line:
-                    cgf_dict[line.split('=')[0].strip()] = line.split('=')[1].strip()
-            return cgf_dict
-        else:
-            raise FileNotFoundError(f'Blender virtual environment config file not found at {cgf_path}')
-
-    def _get_blender_program(self) -> BlenderProgram:
-        """
-        Get the BlenderProgram object of the Blender (this venv originates from) based on the Blender virtual
-        environment config file's base-executable path
-
-        :return: a BlenderProgram object
-        """
-        if 'base-executable' in self.venv_config:
-            blender_python_path = Path(self.venv_config['base-executable'])
-            try:
-                if sys.platform == 'win32':
-                    blender_exe_path = blender_python_path.parent.parent.parent.parent / 'blender.exe'
-                else:
-                    raise NotImplementedError  # TODO: Implement for Linux and Mac, which may use different paths.
-                result = BlenderProgramManager.create_blender_program(blender_exe_path)
-                if result:
-                    return result.data
-                else:
-                    raise Exception(f'Error getting Blender program from Blender virtual environment config file: '
-                                    f'{result.message}')
-            except Exception as e:
-                raise Exception(f'Error getting Blender program from Blender virtual environment config file: {e}')
-        else:
-            raise Exception(f'Error getting Blender program from Blender virtual environment config file: '
-                            f'base-executable not found in {self.venv_config}')
+        super().__init__(blender_venv_abs_path)
+        self.dill_extension = '.dbv'
+        self.if_store_in_repo = False
+        self.init_params = {'blender_venv_path': blender_venv_abs_path, 'name': name}
 
     def _get_site_packages(self) -> PythonPackageSet:
         """
@@ -88,7 +50,7 @@ class BlenderVenv(Component):
 
         :return: a PythonPackageSet object
         """
-        venv_package_path = self.venv_path / self.venv_site_packages_path
+        venv_package_path = self.data_path / self.venv_site_packages_path
         return PythonPackageSet(venv_package_path) if venv_package_path.exists() else None
 
     def _get_bpy_package(self) -> PythonLocalPackage or None:
@@ -97,32 +59,84 @@ class BlenderVenv(Component):
 
         :return: a PythonLocalPackage object or None if bpy is not installed
         """
-        bpy_package_path = self.venv_path / self.venv_bpy_package_path / 'bpy'
+        bpy_package_path = self.data_path / self.venv_bpy_package_path / 'bpy'
         return PythonLocalPackage(bpy_package_path) if bpy_package_path.exists() else None
 
     def create_instance(self) -> Result:
         """
-        This is the core method that actually initialize the BlenderAddon object. It is usually called explicitly by
-        the manager which handles the result returned by this method. Returning a Result object is the main reason for
-        using this method instead of __init__.
+        Create a BlenderVenv object based on an existing Blender venv directory path. Please note that this method
+        does not create a Blender venv, it only creates the BlenderVenv object.
 
-        :return: a Result object indicating if the initialization is successful and the message generated during the
-                 initialization
+        :return: a Result object indicating if the initialization is successful, the message generated during the
+                 initialization, and this object if successful.
         """
-        blender_venv_path = self.init_params['blender_venv_path']
-        self.venv_path = Path(blender_venv_path)
-        if self.venv_path.exists():
-            try:
-                self.name = self.venv_path.name
-                self.venv_config: dict = self._get_blender_venv_config()
-                self.blender_program: BlenderProgram = self._get_blender_program()
-                self.site_packages: PythonPackageSet = self._get_site_packages()
-                self.bpy_package: PythonLocalPackage = self._get_bpy_package()
-                return Result(True, '', self)
-            except Exception as e:
-                return Result(False, f'Error creating Blender virtual environment: {e}')
+
+        def get_blender_venv_config() -> dict:
+            """
+            Get the Blender virtual environment config file's content as a dictionary.
+
+            :return: a dictionary of the Blender virtual environment config file's content
+            """
+            cgf_path = self.data_path / 'pyvenv.cfg'
+            if cgf_path.exists():
+                cgf_dict = {}
+                with open(cgf_path) as f:
+                    lines = f.readlines()
+                for line in lines:
+                    if '=' in line:
+                        cgf_dict[line.split('=')[0].strip()] = line.split('=')[1].strip()
+                return cgf_dict
+            else:
+                raise FileNotFoundError(f'Blender virtual environment config file not found at {cgf_path}')
+
+        def get_blender_program() -> BlenderProgram:
+            """
+            Get the BlenderProgram object of the Blender (this venv originates from) based on the Blender virtual
+            environment config file's base-executable path
+
+            :return: a BlenderProgram object
+            """
+            if 'base-executable' in self.venv_config:
+                blender_python_path = Path(self.venv_config['base-executable'])
+                try:
+                    if sys.platform == 'win32':
+                        blender_dir_path = blender_python_path.parent.parent.parent.parent
+                    else:
+                        raise NotImplementedError  # TODO: Implement for Linux and Mac, which may use different paths.
+                    result = BlenderProgramManager.create(blender_dir_path)
+                    if result:
+                        return result.data
+                    else:
+                        raise Exception(f'Error getting Blender program from Blender virtual environment config file: '
+                                        f'{result.message}')
+                except Exception as e:
+                    raise Exception(f'Error getting Blender program from Blender virtual environment config file: {e}')
+            else:
+                raise Exception(f'Error getting Blender program from Blender virtual environment config file: '
+                                f'base-executable not found in {self.venv_config}')
+
+        if self.data_path.exists():
+            if Config.repo_dir in self.data_path.parents:  # Ensure this venv is located in the repo
+                try:
+                    # If no name is given, use the data path name
+                    self.name = self.init_params['name']
+                    if not self.name:
+                        self.name = self.data_path.name
+                    self.venv_config: dict = get_blender_venv_config()
+                    self.blender_program: BlenderProgram = get_blender_program()
+                    self.site_packages: PythonPackageSet = self._get_site_packages()
+                    self.bpy_package: PythonLocalPackage = self._get_bpy_package()
+                    return Result(True, '', self)
+                except Exception as e:
+                    return Result(False, f'Error creating Blender virtual environment: {e}')
+            else:
+                return Result(False, f'Blender virtual environment not in repository: {self.data_path}')
         else:
-            return Result(False, f'Blender virtual environment not found at {self.venv_path}')
+            return Result(False, f'Blender virtual environment directory not found at {self.data_path}')
+
+    def store_in_repo(self, repo_dir: str or Path) -> Result:
+        """BlenderVenv shouldn't be stored in repo, but created from a BlenderProgram in the repo directly."""
+        raise NotImplementedError
 
     # endregion
 
@@ -140,7 +154,7 @@ class BlenderVenv(Component):
         :return: a Result object
         """
         if sys.platform == "win32":
-            activate_script = self.venv_path / 'Scripts' / 'activate.bat'
+            activate_script = self.data_path / 'Scripts' / 'activate.bat'
             no_deps_str = '--no-deps' if no_deps else ''
             if installation_path is not None:
                 command = f'cmd.exe /c "{activate_script} && pip install {subject.get_installation_str()} ' \
@@ -150,7 +164,7 @@ class BlenderVenv(Component):
                            f'{no_deps_str}"')
         else:
             raise NotImplementedError  # TODO: Implement for Linux and Mac, which may use different paths.
-            # activate_script = self.venv_path / 'bin' / 'activate'
+            # activate_script = self.data_path / 'bin' / 'activate'
             # command = f'source {activate_script} && pip install {subject.get_installation_str()}'
         return run_command(command)
 
@@ -166,7 +180,7 @@ class BlenderVenv(Component):
         # Check if bpy package is already installed
         self.bpy_package = self._get_bpy_package()
         if self.bpy_package is None or force:
-            installation_path = self.venv_path / self.venv_bpy_package_path
+            installation_path = self.data_path / self.venv_bpy_package_path
             # If force is True, remove the bpy package if it exists
             if force and installation_path.exists():
                 shutil.rmtree(installation_path / 'bpy')
@@ -182,7 +196,7 @@ class BlenderVenv(Component):
         else:
             return Result(True, 'bpy package already installed')
 
-    def install_site_pacakge(self, subject: PythonPyPIPackage or PythonPackageSet) -> Result:
+    def install_site_package(self, subject: PythonPyPIPackage or PythonPackageSet) -> Result:
         """
         Install the given PythonPyPIPackage or PythonPackageSet object in the virtual environment's site-packages dir.
 
@@ -197,7 +211,7 @@ class BlenderVenv(Component):
             package_names = [subject.name] if isinstance(subject, PythonPyPIPackage) else subject.package_dict.keys()
             # Check if the package(s) is installed successfully.
             if self.site_packages is None:
-                return Result(False, f'Error getting site packages at {self.venv_path / self.venv_site_packages_path}')
+                return Result(False, f'Error getting site packages at {self.data_path / self.venv_site_packages_path}')
             elif all([package_name in self.site_packages.package_dict for package_name in package_names]):
                 return Result(True, f'Package(s) installed successfully')
             else:
@@ -215,7 +229,7 @@ class BlenderVenv(Component):
         :return: a Result object
         """
         if subject.verify():
-            result = subject.deploy(self.venv_path / self.venv_dev_libraries_path)
+            result = subject.deploy(self.data_path / self.venv_dev_libraries_path)
             return result
         else:
             return Result(False, f'The development library {subject.name} is not valid')
@@ -236,7 +250,7 @@ class BlenderVenv(Component):
         if package_path.is_absolute():
             line_to_write = f'import sys; sys.path.append("{package_path.as_posix()}")  {line_indicator}\n'
         else:
-            line_to_write = (f'import sys; sys.path.append(sys.prefix + "\\{package_path.as_posix()}")  '
+            line_to_write = (f'import sys; sys.path.append(sys.prefix + "{os.sep}{package_path.as_posix()}")  '
                              f'{line_indicator}\n')
         if pth_path.exists():
             with open(pth_path, 'r') as f:
@@ -253,8 +267,17 @@ class BlenderVenv(Component):
 
         :return: a Result object
         """
-        pth_path = self.venv_path / self.venv_managed_packages_pth_path
+        pth_path = self.data_path / self.venv_managed_packages_pth_path
         return self._add_package_dir_to_pth_file(pth_path, self.venv_bpy_package_path)
+
+    def add_dev_libraries_to_venv_pth(self) -> Result:
+        """
+        Add a line to the venv pth file to append the dev libraries path to this venv's sys.path.
+
+        :return: a Result object
+        """
+        pth_path = self.data_path / self.venv_managed_packages_pth_path
+        return self._add_package_dir_to_pth_file(pth_path, self.data_path / self.venv_dev_libraries_path)
 
     def add_bpy_package_to_blender_pth(self) -> Result:
         """
@@ -264,8 +287,9 @@ class BlenderVenv(Component):
 
         :return: a Result object
         """
-        pth_path = self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name
-        return self._add_package_dir_to_pth_file(pth_path, self.venv_path / self.venv_bpy_package_path)
+        pth_path = (self.blender_program.data_path / self.blender_program.python_site_pacakge_dir /
+                    self.venv_managed_packages_pth_path.name)
+        return self._add_package_dir_to_pth_file(pth_path, self.data_path / self.venv_bpy_package_path)
 
     def add_site_packages_to_blender_pth(self) -> Result:
         """
@@ -273,17 +297,9 @@ class BlenderVenv(Component):
 
         :return: a Result object
         """
-        pth_path = self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name
-        return self._add_package_dir_to_pth_file(pth_path, self.venv_path / self.venv_site_packages_path)
-
-    def add_dev_libraries_to_venv_pth(self) -> Result:
-        """
-        Add a line to the venv pth file to append the dev libraries path to this venv's sys.path.
-
-        :return: a Result object
-        """
-        pth_path = self.venv_path / self.venv_managed_packages_pth_path
-        return self._add_package_dir_to_pth_file(pth_path, self.venv_dev_libraries_path)
+        pth_path = (self.blender_program.data_path / self.blender_program.python_site_pacakge_dir /
+                    self.venv_managed_packages_pth_path.name)
+        return self._add_package_dir_to_pth_file(pth_path, self.data_path / self.venv_site_packages_path)
 
     def add_dev_libraries_to_blender_pth(self) -> Result:
         """
@@ -291,8 +307,9 @@ class BlenderVenv(Component):
 
         :return: a Result object
         """
-        pth_path = self.blender_program.python_site_pacakge_dir / self.venv_managed_packages_pth_path.name
-        return self._add_package_dir_to_pth_file(pth_path, self.venv_path / self.venv_dev_libraries_path)
+        pth_path = (self.blender_program.data_path / self.blender_program.python_site_pacakge_dir /
+                    self.venv_managed_packages_pth_path.name)
+        return self._add_package_dir_to_pth_file(pth_path, self.data_path / self.venv_dev_libraries_path)
 
     def remove_venv_pth(self) -> Result:
         """
@@ -300,7 +317,7 @@ class BlenderVenv(Component):
 
         :return: a Result object
         """
-        return SF.remove_target_path(self.venv_path / self.venv_managed_packages_pth_path)
+        return SF.remove_target_path(self.data_path / self.venv_managed_packages_pth_path)
 
     def remove_blender_pth(self) -> Result:
         """
@@ -308,39 +325,22 @@ class BlenderVenv(Component):
 
         :return: a Result object
         """
-        return SF.remove_target_path(self.blender_program.python_site_pacakge_dir /
+        return SF.remove_target_path(self.blender_program.data_path / self.blender_program.python_site_pacakge_dir /
                                      self.venv_managed_packages_pth_path.name)
 
     # endregion
 
     def verify(self) -> bool:
         """
-        Verify if the Blender virtual environment is valid. This is often called after restored from a dilled object.
+        Verify if the Blender virtual environment is valid. It is valid if the BlenderProgram object is valid and the
+        Blender virtual environment directory exists.
 
         :return: True if the Blender virtual environment is valid, otherwise False
         """
-        return self.venv_path.exists() and self.blender_program.verify()
+        return super().verify() and self.blender_program.verify()
 
     def __str__(self):
-        return f'BlenderVenv: {self.name} ({self.blender_program})'
-
-    def __eq__(self, other: 'BlenderVenv'):
-        """
-        The equality of 2 BlenderVenv objects is determined by the addon path instead of the instance itself. If the
-        instance equality is required, use compare_uuid() from Dillable class.
-
-        :param other: another BlenderVenv object
-
-        :return: True if the Blender venv path of this instance is the same as the other instance, otherwise False
-        """
-        if issubclass(other.__class__, BlenderVenv):
-            return self.venv_path == other.venv_path
-        return False
-
-    def __hash__(self):
-        if self._hash is None:
-            self._hash = self.get_stable_hash(self.venv_path.as_posix())
-        return self._hash
+        return f'{self.__class__.__name__}: {self.name} ({self.blender_program})'
 
 
 class BlenderVenvManager:
@@ -353,42 +353,56 @@ class BlenderVenvManager:
         raise Exception('BlenderVenvManager should not be instantiated.')
 
     @staticmethod
-    def create_venv_from_blender_program(blender_program: BlenderProgram, venv_path: str or Path,
-                                         delete_existing=False) -> Result:
+    def create_venv_from_blender_program(blender_program: BlenderProgram, blender_venv_abs_path: str or Path) -> Result:
         """
         Physically create a virtual environment at the given path based on the Python interpreter of the given
         BlenderProgram object.
 
         :param blender_program: a BlenderProgram object
-        :param venv_path: the path to create the Blender virtual environment
+        :param blender_venv_abs_path: the path to create the Blender virtual environment
         :param delete_existing: whether to delete the existing directory at the given path
 
         :return: a Result object with the BlenderVenv object as the data
         """
-        venv_path = Path(venv_path)
-        result = SF.ready_target_path(venv_path, ensure_parent_dir=True, delete_existing=delete_existing)
-        if not result:
-            return result
-        if blender_program.verify():
-            try:
-                os.makedirs(venv_path)
-                options = [venv_path.as_posix(), '--python', blender_program.python_exe_path.as_posix()]
-                virtualenv.cli_run(options)
-                return BlenderVenvManager.create_blender_venv(venv_path)
-            except Exception as e:
-                return Result(False, f'Error creating Blender virtual environment: {e}')
+        blender_venv_abs_path = Path(blender_venv_abs_path)
+        # Ensure the venv path is in the repo
+        if Config.repo_dir in blender_venv_abs_path.parents:
+            result = SF.ready_target_path(blender_venv_abs_path, ensure_parent_dir=True)
+            if not result:
+                return result
+            if blender_program.verify():
+                try:
+                    os.makedirs(blender_venv_abs_path)
+                    blender_python_exe_path = blender_program.data_path / blender_program.python_exe_path
+                    options = [blender_venv_abs_path.as_posix(), '--python', blender_python_exe_path.as_posix()]
+                    virtualenv.cli_run(options)
+                    if blender_venv_abs_path.exists():
+                        return BlenderVenvManager.create(blender_venv_abs_path)
+                    else:
+                        return Result(False, f'Error creating Blender virtual environment at {blender_venv_abs_path}')
+                except Exception as e:
+                    return Result(False, f'Error creating Blender virtual environment: {e}')
+            else:
+                return Result(False, f'Error creating Blender virtual environment: Blender program not verified')
         else:
-            return Result(False, f'Error creating Blender virtual environment: Blender program not verified')
+            return Result(False, f'Error creating Blender virtual environment: not in the repository')
 
     @staticmethod
-    def create_blender_venv(blender_venv_path: str or Path) -> Result:
+    def create(blender_venv_abs_path: str or Path, name: str =None) -> Result:
         """
         Create a Blender venv instance from a pre-existing virtual environment created from a Blender's Python
         interpreter. Typically, the venv path is from the repository's venv directory.
 
-        :param blender_venv_path: the path to create the Blender virtual environment
+        :param blender_venv_abs_path: the path to create the Blender virtual environment
+        :param name: a custom name for the Blender virtual environment from the user input
 
-        :return: a Result object with the BlenderVenv object as the data
+        :return:a Result object indicating if the initialization is successful, the message generated during the
+                initialization, and this BlenderProgram object if successful.
         """
-        blog(2, 'Creating a Blender virtual environment...')
-        return BlenderVenv(blender_venv_path).create_instance()
+        blender_venv_abs_path = Path(blender_venv_abs_path)
+        # Ensure the venv path is in the repo
+        if Config.repo_dir in blender_venv_abs_path.parents:
+            blog(2, f'Creating a Blender virtual environment from {blender_venv_abs_path}...')
+            return BlenderVenv(blender_venv_abs_path, name=name).create_instance()
+        else:
+            return Result(False, f'Error creating Blender virtual environment: not in the repository')

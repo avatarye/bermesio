@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 import shutil
 import sys
@@ -17,8 +18,7 @@ class Component(Dillable):
         self.if_store_in_repo = False  # If the data of this component can be stored in the repo.
         self.is_stored_in_repo = False  # If the data of this component is stored in the repo.
         self.platform = sys.platform  # OS platform
-        self.dill_extension = '.dil'
-        self._hash = None  # Unique identifier of the component data based on the data itself, not this instance.
+        self.dill_extension = '.dil'  # Extension of the dill file
         self.init_params = {}  # Parameters used to initialize this instance.
 
         # Perform a preliminary check on data_path and set the paths
@@ -74,3 +74,40 @@ class Component(Dillable):
                 return Result(False, f'Error storing data to {repo_dir}: already in the repo')
         else:
             return Result(False, f'Error storing data to {repo_dir}: not allowed')
+
+    def verify(self) -> bool:
+        """
+        Verify if this Component object is valid by checking if the data path exists.
+
+        :return: True if the data path is valid, otherwise False
+        """
+        return self.data_path.exists()
+
+    def __eq__(self, other):
+        """
+        The equality of 2 Component instances is determined by the platform and the data path.
+
+        :param other: another Component object
+
+        :return: True if the platform and data path of this instance is the same as the other instance, otherwise False
+        """
+        if issubclass(other.__class__, Component):
+            return f'{self.platform}|{self.data_path}' == f'{other.platform}|{other.data_path}'
+
+    @staticmethod
+    def get_stable_hash(string: str) -> int:
+        """
+        Get a stable hash of the object which will be used to compare again sub-repo pool. The hash will be a
+        representation of a core string of the object, which is usually the path of the associated data. Due to the
+        integer overflow issue, the hash is sliced every 5 characters and converted to integer.
+        """
+        return int(hashlib.sha256(string.encode()).hexdigest()[::5], 16)
+
+    def __hash__(self):
+        """
+        The hash of a Component instance is determined by the data path. The hash value is a sha256 hash of the data
+        path sliced every 5 characters and converted to integer.
+
+        :return: a hash value of the data path
+        """
+        return self.get_stable_hash(self.data_path.as_posix())

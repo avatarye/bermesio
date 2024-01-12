@@ -3,66 +3,67 @@ import shutil
 
 from packaging.version import Version
 
-from testing_common import TESTDATA, is_dillable
+from testing_common import TESTDATA, is_dillable, get_repo
 
-from components.blender_program import BlenderProgramManager
+from components.blender_program import BlenderProgram, BlenderProgramManager
 from components.blender_venv import BlenderVenvManager
 from components.python_package import PythonPyPIPackage, PythonPackageSet
 
 
 def test_blender_venv_class():
-    # This test will only succeed if Blender is installed at the given path.
-    blender_venv_path = Path(TESTDATA['blender_venv|0|blender_venv_path'])
-    if blender_venv_path.exists():
-        result = BlenderVenvManager.create_blender_venv(blender_venv_path)
-        assert result, f'Error creating BlenderVenv: {result.message}'
-        venv = result.data
-        assert venv.blender_program.blender_version == Version(TESTDATA['blender_venv|0|blender_version'])
+    repo = get_repo()
 
-        # Test pth related methods
-        venv_pth_path = venv.venv_path / venv.venv_managed_packages_pth_path
-        venv.remove_venv_pth()
-        assert not venv_pth_path.exists(), 'BlenderVenv.remove_venv_pth() should remove the venv pth file'
-        blender_pth_path = venv.blender_program.python_site_pacakge_dir / venv.venv_managed_packages_pth_path.name
-        venv.remove_blender_pth()
-        assert not blender_pth_path.exists(), 'BlenderVenv.remove_blender_pth() should remove the blender pth file'
+    # Add BlenderProgram to repo first
+    blender_dir_path = Path(TESTDATA['blender_program|0|blender_dir_path'])
+    result = repo.create_component(BlenderProgram, blender_dir_path, name='Blender_4.02_Win')
+    assert result, 'Error adding BlenderProgram to repo'
 
-        venv.add_bpy_package_to_venv_pth()
-        venv.add_dev_libraries_to_venv_pth()
-        assert venv_pth_path.exists(), 'BlenderVenv.add_bpy_package_to_venv_pth() should create the venv pth file'
-        venv.add_bpy_package_to_blender_pth()
-        venv.add_site_packages_to_blender_pth()
-        venv.add_dev_libraries_to_blender_pth()
-        assert blender_pth_path.exists(), 'BlenderVenv.add_bpy_package_to_blender_pth() should create the blender pth file'
+    # Add BlenderVenv to repo
+    venv_path = repo.blender_venv_repo.storage_save_dir / 'TestBlenderVenv'
+    if venv_path.exists():  # Remove the test venv if it exists
+        shutil.rmtree(venv_path)
+    blender_program = result.data
+    blender_venv = BlenderVenvManager.create_venv_from_blender_program(blender_program, venv_path).data
+    result = repo.add_component(blender_venv)
+    assert result, f'Error adding BlenderVenv to repo: {result.message}'
 
-        venv.remove_venv_pth()
-        venv.remove_blender_pth()
+    # Test package related functions
+    blender_venv.install_bpy_package()
+    assert str(blender_venv.bpy_package) == 'bpy==4.0.0', ('BlenderVenv.install_bpy_package() should install the bpy '
+                                                           'package')
+    blender_venv.install_site_package(PythonPyPIPackage('shapely'))
+    assert 'shapely' in str(blender_venv.site_packages), ('BlenderVenv.install_site_package() should install the '
+                                                           'shapely package')
+    # TODO: Test install_dev_library()
 
-        # Test dill-ability
-        assert is_dillable(venv), 'BlenderVenv should be picklable'
+    # Test pth related methods
+    venv_pth_path = blender_venv.data_path / blender_venv.venv_managed_packages_pth_path
+    blender_pth_path = (blender_venv.blender_program.data_path / blender_venv.blender_program.python_site_pacakge_dir
+                        / blender_venv.venv_managed_packages_pth_path.name)
+    blender_venv.add_bpy_package_to_venv_pth()
+    blender_venv.add_dev_libraries_to_venv_pth()
+    assert venv_pth_path.exists(), 'BlenderVenv.add_bpy_package_to_venv_pth() should create the venv pth file'
+    blender_venv.add_bpy_package_to_blender_pth()
+    blender_venv.add_site_packages_to_blender_pth()
+    blender_venv.add_dev_libraries_to_blender_pth()
+    assert blender_pth_path.exists(), 'BlenderVenv.add_bpy_package_to_blender_pth() should create the blender pth file'
+    # NOTE: to thoroughly test the pth related methods, we should run the venv created above and test importing bpy and
+    # shapely packages, and run above Blender GUI to test importing bpy and shapely packages.
+    blender_venv.remove_venv_pth()
+    assert not venv_pth_path.exists(), 'BlenderVenv.remove_venv_pth() should remove the venv pth file'
+    blender_venv.remove_blender_pth()
+    assert not blender_pth_path.exists(), 'BlenderVenv.remove_blender_pth() should remove the blender pth file'
+
+    # Test dill-ability
+    assert is_dillable(blender_venv), 'BlenderVenv should be picklable'
 
 
 def test_blender_venv_manager_class():
-    # Test BlenderVenvManager.create_blender_venv()
-    # This test will only succeed if Blender is installed at the given path.
-    blender_exe_path = Path(TESTDATA['blender_program|0|blender_exe_path'])
-    venv_path = Path(__file__).parent / 'test_blender_venv'
+    # Test venv creation function
+    venv_path = Path(TESTDATA['temp_dir']) / 'test_blender_venv'
     if venv_path.exists():  # Remove the test venv if it exists
         shutil.rmtree(venv_path)
-    result = BlenderProgramManager.create_blender_program(blender_exe_path)
-    assert result, f'Error creating BlenderProgram: {result.message}'
-    blender_program = result.data
+
+    blender_program = BlenderProgramManager.create(Path(TESTDATA['blender_program|0|blender_dir_path'])).data
     result = BlenderVenvManager.create_venv_from_blender_program(blender_program, venv_path)
     assert result, f'Error creating BlenderVenv: {result.message}'
-    blender_venv = result.data
-    assert Path(blender_venv.venv_config['base-executable']) == blender_program.python_exe_path
-    result = blender_venv.install_bpy_package()
-    assert result.ok, f'Error installing bpy package: {result.message}'
-    result = blender_venv.install_site_pacakge(PythonPyPIPackage('scipy'))
-    assert result.ok, f'Error installing site package: {result.message}'
-    result = blender_venv.install_site_pacakge(PythonPackageSet('packaging\nutm\nshapely'))
-    assert result.ok, f'Error installing site package: {result.message}'
-
-    # Remove the test venv directory
-    shutil.rmtree(venv_path)
-

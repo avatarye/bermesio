@@ -4,7 +4,7 @@ from pathlib import Path
 import packaging.version
 
 from commons.command import run_command
-from commons.common import Result
+from commons.common import Result, blog
 from components.component import Component
 from components.python_package import PythonPackageSet
 
@@ -26,18 +26,15 @@ class BlenderProgram(Component):
         """
         super().__init__(blender_dir_abs_path)
         self.dill_extension = '.dbp'
-        self.blender_exe_path, self.blender_version = None, None
-        self.python_exe_path, self.python_version = None, None
-        self.python_site_pacakge_dir, self.python_packages = None, None
         self.if_store_in_repo = True
         self.init_params = {'blender_dir_path': blender_dir_abs_path, 'name': name}
 
     def create_instance(self) -> Result:
         """
-        Create a BlenderProgram object based on an existing Blender directory path that is external to the repository.
+        Create a BlenderProgram object based on an existing Blender directory path.
 
         :return: a Result object indicating if the initialization is successful, the message generated during the
-                 initialization, and this BlenderProgram object if successful.
+                 initialization, and this object if successful.
         """
 
         def get_blender_exe_path() -> Path:
@@ -122,51 +119,44 @@ class BlenderProgram(Component):
 
         if self.data_path is not None:
             try:
+                # If no name is given, use the data path name
+                self.name = self.init_params['name']
+                if not self.name:
+                    self.name = self.data_path.name
                 self.blender_exe_path = get_blender_exe_path()
                 if (self.data_path / self.blender_exe_path).exists():
                     self.blender_version = get_blender_version()
                     self.python_exe_path, self.python_version = get_python_exe_path_version()
                     self.python_site_pacakge_dir = get_python_site_packages_dir()
                     self.python_packages = get_python_packages()
-                    # If no name is given, use the default name
-                    name = self.init_params['name']
-                    if not name:
-                        self.name = self.data_path.name
-                    else:
-                        self.name = name
+
                     return Result(True, f'Blender program instance created successfully.', self)
                 else:
                     return Result(False, f'Blender executable file not found at {self.blender_exe_path}')
             except Exception as e:
                 return Result(False, f'Error creating Blender program instance: {e}')
         else:
-            return Result(False, f'Blender directory not found at {self.data_path}')
-
-    def verify(self) -> bool:
-        """
-        Verify if this BlenderProgram object is valid by checking if the Blender executable path and the Python
-        executable path exist.
-
-        :return: True if the Blender executable is valid, otherwise False
-        """
-        return self.blender_exe_path.exists() and self.python_exe_path.exists()
+            return Result(False, f'Blender program directory not found at {self.data_path}')
 
     def __str__(self):
-        return f'{self.__class__}: {self.name} ({self.blender_version})'
+        return f'{self.__class__.__name__}: {self.name} ({self.blender_version})'
 
-    def __eq__(self, other: 'BlenderProgram'):
+
+class BlenderProgramManager:
+
+    def __new__(cls, *args, **kwargs):
+        raise NotImplementedError
+
+    @staticmethod
+    def create(blender_dir_path: str or Path, name: str = None) -> Result:
         """
-        The equality of 2 BlenderProgram objects is determined by the platform and the Blender executable path.
+        Create a BlenderProgram object based on an existing Blender directory path that is external to the repository.
 
-        :param other: another BlenderProgram object
+        :param blender_dir_path: a str or Path object of the Blender directory path, must be an absolute path
+        :param name: a custom name for the Blender program from the user input
 
-        :return: True if the Blender program path of this instance is the same as the other instance, otherwise False
+        :return: a Result object indicating if the initialization is successful, the message generated during the
+                 initialization, and this BlenderProgram object if successful.
         """
-        if issubclass(other.__class__, BlenderProgram):
-            return f'{self.platform}|{self.data_path}' == f'{other.platform}|{other.data_path}'
-        return False
-
-    def __hash__(self):
-        if self._hash is None:
-            self._hash = self.get_stable_hash(self.data_path.as_posix())
-        return self._hash
+        blog(2, f'Creating Blender program instance from {blender_dir_path}...')
+        return BlenderProgram(blender_dir_path, name).create_instance()

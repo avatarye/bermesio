@@ -6,7 +6,7 @@ import requests
 
 from commons.common import Result, ResultList, blog, SharedFunctions as SF
 from components.blender_addon import BlenderAddon, BlenderReleasedAddon, BlenderDevAddon, BlenderAddonManager
-from components.blender_program import BlenderProgram
+from components.blender_program import BlenderProgram, BlenderProgramManager
 from components.blender_setup import BlenderSetup, BlenderSetupManager
 from components.blender_script import BlenderScript, BlenderReleasedScript, BlenderDevScript, BlenderScriptManager
 from components.blender_venv import BlenderVenv, BlenderVenvManager
@@ -40,15 +40,16 @@ class Repository:
         },
         'blender_program_repo': {
             'storage_dir': 'BlenderPrograms',
-            'extension': '.dbp',
             'class': BlenderProgram,
+            'manager': BlenderProgramManager,
+            'creation_fn': BlenderProgramManager.create,
         },
         'blender_venv_repo': {
             'storage_dir': 'Venvs',
             'extension': '.dbv',
             'class': BlenderVenv,
             'manager': BlenderVenvManager,
-            'creation_fn': BlenderVenvManager.create_blender_venv,
+            'creation_fn': BlenderVenvManager.create,
             'data_path_attr': 'venv_path',
         },
         'blender_addon_repo': {
@@ -210,16 +211,21 @@ class Repository:
         """
         return self.get_component_class_belonging_sub_repo(component.__class__)
 
-    def add_component(self, component, delete_existing=False, query_user=False) -> Result:
+    def add_component(self, component, query_user=False) -> Result:
         sub_repo = self.get_component_belonging_sub_repo(component)
         if sub_repo:
-            return sub_repo.add(component, delete_existing=delete_existing, query_user=query_user)
+            # If the component is a BlenderVenv, check if it was created from a Blender program in the repo.
+            if isinstance(component, BlenderVenv):
+                result = self.match_venv_to_blender_program_in_repo(component)
+                if not result:
+                    return Result(False, f'The Blender venv appears to be not created from a Blender program in the '
+                                         f'repo.')
+            return sub_repo.add(component, query_user=query_user)
         return Result(False, f'No sub repo found for {component}')
 
     def create_component(self, component_class, *args, **kwargs) -> Result:
         sub_repo = self.get_component_class_belonging_sub_repo(component_class)
         if sub_repo:
-            kwargs['repo'] = self  # Ensure this repo is passed to the creation function in the component manager
             result = sub_repo.config['creation_fn'](*args, **kwargs)
             if result:
                 return self.add_component(result.data)
@@ -248,21 +254,27 @@ class Repository:
         else:
             return Result(False, f'Component {component} is not updatable')
 
-    # TODO: Replace this fn with a more universal matching function for components against the repo
-    def match_venv_to_blender_program(self):
+    def match_venv_to_blender_program_in_repo(self, blender_venv: BlenderVenv) -> Result:
         """
-        BlenderVenv needs to be matched with BlenderProgram in the repo, because the venv is created with its own
-        BlenderProgram based on the config of the venv. It needs to be replaced with the repo's existing BlenderProgram
-        by comparing the Blender exe paths.
+        Match the BlenderProgram of the BlenderVenv to the one in the repo. It constraints all the BlenderVenvs in the
+        repo to be created from the Blender programs in the repo.
 
-        :param blender_program:
+        :param blender_venv: a BlenderVenv object
         """
-        for venv in self.blender_venv_repo.pool.values():
-            if venv.blender_program not in self.blender_program_repo.pool:  # Not already using a repo BlenderProgram
-                for blender_program in self.blender_program_repo.pool.values():
-                    if venv.blender_program.blender_exe_path == blender_program.blender_exe_path:
-                        venv.blender_program = blender_program
-                        break
+        if isinstance(blender_venv, BlenderVenv):
+            if self.blender_program_repo.pool is not None:
+                # Check if the BlenderProgram of the venv is already in the repo
+                if hash(blender_venv.blender_program) in self.blender_program_repo.pool:
+                    # If found, replace the venv's BlenderProgram with the one in the repo
+                    blender_venv.blender_program = self.blender_program_repo.pool[hash(blender_venv.blender_program)]
+                    return Result(True, f'Blender venv {blender_venv} matched with an existing Blender program in the '
+                                        f'repo.')
+                else:
+                    return Result(False, f'No matching Blender program in the repo found for {blender_venv}')
+            else:
+                return Result(False, f'Error getting Blender program sub-repo')
+        else:
+            return Result(False, f'Invalid Blender venv {blender_venv}')
 
 
 class SubRepository:
@@ -290,11 +302,7 @@ class SubRepository:
                 self.storage_save_dir = self._get_storage_save(self.config['storage_dir'])
             else:
                 self.storage_save_dir = None
-            self.extension = self.config['extension']
             self.class_ = self.config['class']
-            self.class_.dill_extension = self.extension  # Monkey patch the dill extension to the class
-            for class_ in self.class_.__subclasses__():
-                class_.dill_extension = self.extension  # Monkey patch the dill extension to the subclasses
             self.pool = {}
             return Result(True, f'Sub repo {self.name} created successfully', self)
         except Exception as e:
@@ -363,11 +371,11 @@ class SubRepository:
     def get(self, component) -> object or None:
         return self.pool.get(hash(component), None)
 
-    def add(self, component, delete_existing=False, query_user=False) -> Result:
+    def add(self, component, query_user=False) -> Result:
         if issubclass(component.__class__, self.class_):
             # Check if the component already exists in the pool, note this is comparing the hash of the component,
             # which essentially means the content of the component, not the instance itself.
-            if component in self.pool:
+            if hash(component) in self.pool:
                 if query_user and self.user_query_fn is not None:
                     result = self.user_query_fn('Add Component', f'{component} already exists in the repo. Would you '
                                                                  f'like to replace it?')
@@ -413,7 +421,7 @@ class SubRepository:
                         return Result(True, f'User cancelled removing {component} from the repo.')
 
                 # Remove the component from the pool, its dill file, and associated data if stored in the repo
-                if component in self.pool:
+                if hash(component) in self.pool:
                     # Remove the component from the pool
                     del self.pool[hash(component)]
                     component.remove_from_disk()
