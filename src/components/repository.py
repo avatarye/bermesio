@@ -32,7 +32,7 @@ class Repository:
             'storage_dir': 'Setups',
             'class': BlenderSetup,
             'manager': BlenderSetupManager,
-            'creation_fn': BlenderSetupManager.create_blender_setup,
+            'creation_fn': BlenderSetupManager.create,
         },
         'blender_program_repo': {
             'storage_dir': 'BlenderPrograms',
@@ -48,7 +48,6 @@ class Repository:
         },
         'blender_addon_repo': {
             'storage_dir': 'Addons',
-            'extension': '.dba',
             'class': BlenderReleasedAddon,
             'manager': BlenderAddonManager,
             'creation_fn': BlenderAddonManager.create_blender_addon,
@@ -57,7 +56,7 @@ class Repository:
             'storage_dir': 'Scripts',
             'class': BlenderReleasedScript,
             'manager': BlenderScriptManager,
-            # 'creation_fn': BlenderScriptManager.create,
+            'creation_fn': BlenderScriptManager.create_blender_script,
         },
         'blender_dev_addon_repo': {
             'storage_dir': None,
@@ -69,7 +68,7 @@ class Repository:
             'storage_dir': None,
             'class': BlenderDevScript,
             'manager': BlenderScriptManager,
-            # 'creation_fn': BlenderScriptManager.create_dev,
+            'creation_fn': BlenderScriptManager.create_blender_dev_script,
         },
         'dev_library_repo': {
             'storage_dir': None,
@@ -171,6 +170,9 @@ class Repository:
     def save_all_components(self) -> Result:
         return ResultList([sub_repo.save_components_to_disk() for sub_repo in self.sub_repos.values()]).to_result()
 
+    def load_all_components(self) -> Result:
+        return ResultList([sub_repo.load_components_from_disk() for sub_repo in self.sub_repos.values()]).to_result()
+
     def get_component_class_belonging_sub_repo(self, component_class) -> 'SubRepository' or None:
         """
         Get the sub repo that the component class belongs to by checking the component class against the sub repo's
@@ -225,19 +227,29 @@ class Repository:
             return sub_repo.remove(component)
         return Result(False, f'No sub repo found for {component}')
 
+    def replace_component(self, component) -> Result:
+        """
+        Replace an existing component in the repo with a new component without comparing version numbers. After
+        replacing, update all other components that depend on the replaced component.
+        """
+        raise NotImplementedError
+
     def update_component(self, component) -> Result:
         """
-        Update the component in the repo with the new component. The new component must be an updatable type, such as
-        BlenderAddon, BlenderScript, and have the same content.
-
-        :param component:
-        :return:
+        Update an existing component in the repo with a new component if the new component has a higher version number.
+        After updating, update all other components that depend on the updated component.
         """
         if issubclass(component.__class__, BlenderAddon) or issubclass(component.__class__, BlenderScript):
             sub_repo = self.get_component_belonging_sub_repo(component)
             return sub_repo.update(component)
         else:
             return Result(False, f'Component {component} is not updatable')
+
+    def duplicate_component(self, component) -> Result:
+        raise NotImplementedError
+
+    def rename_component(self, component) -> Result:
+        raise NotImplementedError
 
     def match_venv_to_blender_program_in_repo(self, blender_venv: BlenderVenv) -> Result:
         """
@@ -288,6 +300,7 @@ class SubRepository:
             else:
                 self.storage_save_dir = None
             self.class_ = self.config['class']
+            self.dill_extension = Config.dill_extensions[self.class_.__name__]
             self.pool = {}
             return Result(True, f'Sub repo {self.name} created successfully', self)
         except Exception as e:
@@ -305,7 +318,8 @@ class SubRepository:
             results = []
             corrupted_dill_files = []
             # Collect all dill files of the same extension from disk
-            dill_files = [file for file in self.component_save_dir.iterdir() if file.suffix == self.extension]
+            dill_files = [file for file in self.component_save_dir.iterdir()
+                          if file.suffix == self.dill_extension]
             # Go through all found dill files
             while len(dill_files):
                 file = dill_files.pop()

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from commons.common import Result, blog, SharedFunctions as SF
 from components.component import Component
+from config import Config
 
 
 class PythonDevLibrary(Component):
@@ -22,8 +23,12 @@ class PythonDevLibrary(Component):
                              name such as "src" or "source". The symlink will use this name as the deployed name.
         """
         super().__init__(library_path)
-        self.dill_extension = '.dpl'
+        self.dill_extension = Config.get_dill_extension(self)
+        self.__class__.dill_extension = self.dill_extension
         self.if_store_in_repo = False
+        self.is_renamable = False
+        self.is_upgradeable = False
+        self.is_duplicable = False
         self.init_params = {'library_path': library_path, 'name': name}
 
     def create_instance(self) -> Result:
@@ -65,7 +70,7 @@ class PythonDevLibrary(Component):
                                      f'you are using Windows, please try again with administrator privilege.')
             if deployed_target_path.exists():
                 blog(2, f'Symlinked development library {self.name} to {deployed_target_path}')
-                return Result(True)
+                return Result(True, '', deployed_target_path)
             else:
                 return Result(False, f'Error creating symlink to development library at {deployed_target_path}.')
         else:

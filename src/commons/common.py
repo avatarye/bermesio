@@ -211,6 +211,16 @@ class Dillable:
             except Exception as e:
                 return Result(False, f'Error saving {self.__class__.__name__} to {self.dill_save_path}: {e}')
 
+    def resave_to_disk(self) -> Result:
+        """
+        Resave the object to disk as a dill file if the dill_save_path is set.
+
+        :return: a Result object
+        """
+        if self.dill_save_path is not None:
+            return self.save_to_disk(self.dill_save_path.parent)
+        return Result(False, f'Error saving {self} to disk: dill_save_path not set')
+
     @classmethod
     def load_from_disk(cls, file_path: str or Path) -> Result:
         """

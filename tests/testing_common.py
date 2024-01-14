@@ -48,8 +48,8 @@ def is_dillable(obj):
 def get_repo(repo_dir=None, delete_existing=True):
     if repo_dir is None:
         repo_dir = Path(TESTDATA["temp_dir"]) / 'test_repo'
-    if repo_dir.exists() and delete_existing:
-        shutil.rmtree(repo_dir)
+        if repo_dir.exists() and delete_existing:
+            shutil.rmtree(repo_dir)
 
     result = Repository(repo_dir).create_instance()
     if result:

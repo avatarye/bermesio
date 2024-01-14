@@ -25,6 +25,7 @@ def test_blender_released_addon_classes():
         addon = result.data
         result = repo.add_component(addon)
         assert result, 'Error adding BlenderAddon to repo'
+        assert addon.is_stored_in_repo and addon.repo_rel_path is not None, 'BlenderAddon should be stored in repo'
         # Test BlenderAddon attributes
         assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
         assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'
@@ -63,6 +64,7 @@ def test_blender_released_addon_classes():
         addon = result.data
         result = repo.add_component(addon)
         assert result, 'Error adding BlenderAddon to repo'
+        assert addon.is_stored_in_repo and addon.repo_rel_path is not None, 'BlenderAddon should be stored in repo'
         # Test BlenderAddon attributes
         assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
         assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'
@@ -107,6 +109,7 @@ def test_blender_dev_addon_classes():
     addon = result.data
     result = repo.add_component(addon)
     assert result, 'Error adding BlenderAddon to repo'
+    assert not addon.is_stored_in_repo and addon.repo_rel_path is None, 'BlenderAddon should not be stored in repo'
     # Test BlenderAddon attributes
     assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
     assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'
@@ -130,6 +133,7 @@ def test_blender_dev_addon_classes():
     addon = result.data
     result = repo.add_component(addon)
     assert result, 'Error adding BlenderAddon to repo'
+    assert not addon.is_stored_in_repo and addon.repo_rel_path is None, 'BlenderAddon should not be stored in repo'
     # Test BlenderAddon attributes
     assert addon.name == test_addon_json['name'], 'BlenderAddon name does not match'
     assert addon.version == Version(test_addon_json['version']), 'BlenderAddon version does not match'

@@ -9,6 +9,7 @@ from packaging.version import Version
 
 from commons.common import Result, blog, SharedFunctions as SF
 from components.component import Component
+from config import Config
 
 
 class BlenderAddon(Component):
@@ -68,8 +69,12 @@ class BlenderAddon(Component):
         :param delete_existing: A flag indicating if the existing addon in the repository should be deleted.
         """
         super().__init__(addon_path)
-        self.dill_extension = '.dba'
+        self.dill_extension = Config.get_dill_extension(self)
+        self.__class__.dill_extension = self.dill_extension
         self.if_store_in_repo = True
+        self.is_renamable = False
+        self.is_upgradeable = True
+        self.is_duplicable = False
         self.init_params = {'addon_path': addon_path}
 
     def _get_addon_init_file_content(self) -> str or None:
@@ -179,17 +184,23 @@ class BlenderAddon(Component):
                                          f'Windows, please try again with administrator privilege.')
                 if deployed_target_path.exists():
                     blog(2, f'Symlinked development addon {self.repo_name} to {deployed_target_path} successfully')
-                    return Result(True)
+                    return Result(True, '', deployed_target_path)
                 else:
                     return Result(False, f'Error symlinking addon to {deployed_target_path}')
             elif (isinstance(self, BlenderZippedAddon) or isinstance(self, BlenderDirectoryAddon)
                     or isinstance(self, BlenderSingleFileAddon)):
                 # Unzip this addon into the custom_addon_dir
-                with zipfile.ZipFile(self.data_path, 'r') as zip_ref:
-                    zip_ref.extractall(deployed_target_path)
-                if deployed_target_path.exists():
-                    blog(2, f'Deployed addon {self.repo_name} to {deployed_target_path} successfully')
-                    return Result(True)
+                with zipfile.ZipFile(self.data_path, 'r') as z:
+                    if isinstance(self, BlenderSingleFileAddon):
+                        extracted_name = z.namelist()[0]
+                    else:
+                        extracted_name = z.namelist()[0].split('/')[0]
+                    z.extractall(deployed_target_path)
+                # The path to the extracted addon directory or file
+                extracted_path = deployed_target_path / extracted_name
+                if extracted_path.exists():
+                    blog(2, f'Deployed addon {self.repo_name} to {extracted_path} successfully')
+                    return Result(True, '', extracted_path)
                 else:
                     return Result(False, f'Error deploying addon to {deployed_target_path}')
             else:
@@ -335,6 +346,8 @@ class BlenderZippedAddon(BlenderReleasedAddon):
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
+                self.is_stored_in_repo = True
+                self.repo_rel_path = repo_addon_path.relative_to(Config.repo_dir)
                 self.data_path = repo_addon_path
                 return Result(True)
             else:
@@ -404,6 +417,8 @@ class BlenderDirectoryAddon(BlenderReleasedAddon):
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
+                self.is_stored_in_repo = True
+                self.repo_rel_path = repo_addon_path.relative_to(Config.repo_dir)
                 self.data_path = repo_addon_path
                 return Result(True)
         else:
@@ -440,6 +455,8 @@ class BlenderSingleFileAddon(BlenderReleasedAddon):
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
+                self.is_stored_in_repo = True
+                self.repo_rel_path = repo_addon_path.relative_to(Config.repo_dir)
                 self.data_path = repo_addon_path
                 return Result(True)
             else:

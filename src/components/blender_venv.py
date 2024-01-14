@@ -40,8 +40,13 @@ class BlenderVenv(Component):
         :param name: a custom name for the Blender virtual environment from the user input
         """
         super().__init__(blender_venv_abs_path)
-        self.dill_extension = '.dbv'
+        self.dill_extension = Config.get_dill_extension(self)
+        self.__class__.dill_extension = self.dill_extension
+        # All BlenderVenv instances must be created in the repo directly. No need to store it.
         self.if_store_in_repo = False
+        self.is_renamable = False
+        self.is_upgradeable = False
+        self.is_duplicable = False
         self.init_params = {'blender_venv_path': blender_venv_abs_path, 'name': name}
 
     def _get_site_packages(self) -> PythonPackageSet:
@@ -353,14 +358,15 @@ class BlenderVenvManager:
         raise Exception('BlenderVenvManager should not be instantiated.')
 
     @staticmethod
-    def create_venv_from_blender_program(blender_program: BlenderProgram, blender_venv_abs_path: str or Path) -> Result:
+    def create_venv_from_blender_program(blender_program: BlenderProgram, blender_venv_abs_path: str or Path,
+                                         name: str = None) -> Result:
         """
         Physically create a virtual environment at the given path based on the Python interpreter of the given
         BlenderProgram object.
 
         :param blender_program: a BlenderProgram object
         :param blender_venv_abs_path: the path to create the Blender virtual environment
-        :param delete_existing: whether to delete the existing directory at the given path
+        :param name: a custom name for the Blender virtual environment from the user input
 
         :return: a Result object with the BlenderVenv object as the data
         """
@@ -377,7 +383,7 @@ class BlenderVenvManager:
                     options = [blender_venv_abs_path.as_posix(), '--python', blender_python_exe_path.as_posix()]
                     virtualenv.cli_run(options)
                     if blender_venv_abs_path.exists():
-                        return BlenderVenvManager.create(blender_venv_abs_path)
+                        return BlenderVenvManager.create(blender_venv_abs_path, name=name)
                     else:
                         return Result(False, f'Error creating Blender virtual environment at {blender_venv_abs_path}')
                 except Exception as e:

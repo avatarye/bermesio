@@ -25,8 +25,12 @@ class BlenderScript(Component):
         :param script_path: a str or Path object of the script path
         """
         super().__init__(script_path)
-        self.dill_extension = '.dbs'
+        self.dill_extension = Config.get_dill_extension(self)
+        self.__class__.dill_extension = self.dill_extension
         self.if_store_in_repo = True
+        self.is_renamable = False
+        self.is_upgradeable = False
+        self.is_duplicable = False
         self.init_params = {'script_path': script_path}
 
     def create_instance(self) -> Result:
@@ -77,7 +81,7 @@ class BlenderScript(Component):
                                          f' Windows, please try again with administrator privilege.')
                 if deployed_target_path.exists():
                     blog(2, f'Symlinked development script {self.name} to {deployed_target_path} successfully')
-                    return Result(True)
+                    return Result(True, '', deployed_target_path)
                 else:
                     return Result(False, f'Error symlinking development script to {deployed_target_path}')
             elif isinstance(self, BlenderRegularScript) or isinstance(self, BlenderStartupScript):
@@ -88,7 +92,7 @@ class BlenderScript(Component):
                     return Result(False, f'Error copying script to {deployed_target_path}.')
                 if deployed_target_path.exists():
                     blog(2, f'Deployed script {self.name} to {deployed_target_path} successfully')
-                    return Result(True)
+                    return Result(True, '', deployed_target_path)
                 else:
                     return Result(False, f'Error deploying script to {deployed_target_path}')
             else:

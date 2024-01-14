@@ -7,6 +7,7 @@ from commons.command import run_command
 from commons.common import Result, blog
 from components.component import Component
 from components.python_package import PythonPackageSet
+from config import Config
 
 
 class BlenderProgram(Component):
@@ -25,8 +26,12 @@ class BlenderProgram(Component):
         :param name: a custom name for the Blender program from the user input
         """
         super().__init__(blender_dir_abs_path)
-        self.dill_extension = '.dbp'
+        self.dill_extension = Config.get_dill_extension(self)
+        self.__class__.dill_extension = self.dill_extension
         self.if_store_in_repo = True
+        self.is_renamable = True
+        self.is_upgradeable = False
+        self.is_duplicable = True
         self.init_params = {'blender_dir_path': blender_dir_abs_path, 'name': name}
 
     def create_instance(self) -> Result:

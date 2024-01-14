@@ -9,6 +9,8 @@ from config import Config
 
 class Component(Dillable):
 
+    dill_extension = '.dil'  # Extension of the dill file
+
     def __init__(self, data_path: str or Path):
         super().__init__()
         self.name = 'Unnamed Component'
@@ -17,8 +19,10 @@ class Component(Dillable):
         self.repo_rel_path = None  # Relative path to this component's associated data stored in the repo if any.
         self.if_store_in_repo = False  # If the data of this component can be stored in the repo.
         self.is_stored_in_repo = False  # If the data of this component is stored in the repo.
+        self.is_renamable = False  # If the data of this component can be renamed
+        self.is_upgradeable = False  # If the data of this component can be upgraded (comparing version and replace)
+        self.is_duplicable = False  # If the data of this component can be duplicated (copy and paste)
         self.platform = sys.platform  # OS platform
-        self.dill_extension = '.dil'  # Extension of the dill file
         self.init_params = {}  # Parameters used to initialize this instance.
 
         # Perform a preliminary check on data_path and set the paths
@@ -84,9 +88,15 @@ class Component(Dillable):
 
         :return: True if the data path is valid, otherwise False
         """
+        # If the data is stored in the repo, use repo relative path to check if the data exists in the repo. This is to
+        # enable loading data from a repo that has been moved to another location.
+        if self.is_stored_in_repo and self.repo_rel_path is not None:
+            data_path = Config.repo_dir / self.repo_rel_path
+            if data_path.exists():
+                self.data_path = data_path
         return self.data_path.exists()
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         """
         The equality of 2 Component instances is determined by the platform and the data path.
 
@@ -95,7 +105,11 @@ class Component(Dillable):
         :return: True if the platform and data path of this instance is the same as the other instance, otherwise False
         """
         if issubclass(other.__class__, Component):
-            return f'{self.platform}|{self.data_path}' == f'{other.platform}|{other.data_path}'
+            # Compare repo relative path if stored in repo
+            if self.is_stored_in_repo and self.repo_rel_path is not None:
+                return self.repo_rel_path == other.repo_rel_path
+            return self.data_path == other.data_path
+        return False
 
     @staticmethod
     def get_stable_hash(string: str) -> int:
@@ -113,4 +127,8 @@ class Component(Dillable):
 
         :return: a hash value of the data path
         """
+        # If the data is stored in the repo, use the repo relative path to get the hash. This is to enable establishing
+        # inter-dependency between components in a repo that has been moved to another location.
+        if self.is_stored_in_repo and self.repo_rel_path is not None:
+            return self.get_stable_hash(self.repo_rel_path.as_posix())
         return self.get_stable_hash(self.data_path.as_posix())
