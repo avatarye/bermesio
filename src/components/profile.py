@@ -1,189 +1,189 @@
 from dataclasses import dataclass
 import os
-from pathlib import Path
-import re
+import sys
 import subprocess
 
-from commons.common import Result, Dillable, blog, SharedFunctions as SF
-from components.blender_addon import BlenderAddon
+from commons.common import Result, ResultList, blog, SharedFunctions as SF
+from commons.command import run_command, popen_command
 from components.blender_program import BlenderProgram
-from components.blender_script import BlenderScript
 from components.blender_setup import BlenderSetup
 from components.blender_venv import BlenderVenv
+from components.component import Component
 from config import Config
 
 
 @dataclass
-class LaunchConfig:
-    launch_type: str = 'blender'  # 'blender' or 'python'
-    if_use_custom_setup: bool = True
-    if_include_venv_python_packages: bool = True
-    if_include_venv_bpy_package: bool = True
-    if_include_venv_dev_libraries: bool = True
-    if_include_addons: bool = True
-    if_include_dev_addons: bool = True
-    included_addon_list: [BlenderAddon] = None
-    if_include_startup_scripts: bool = True
-    if_include_regular_scripts: bool = True
-    included_script_list: [BlenderScript] = None
+class BlenderLaunchConfig:
+    if_use_blender_setup_config: bool = True
+    if_use_blender_setup_addons_scripts: bool = True
+    if_include_venv_site_packages: bool = True
+    if_include_venv_bpy: bool = False
+    if_include_venv_local_libs: bool = True
 
 
-class Profile(Dillable):
+@dataclass
+class VenvLaunchConfig:
+    if_include_venv_bpy: bool = True
+    if_include_venv_local_libs: bool = True
 
-    def __init__(self, name, repo_profile_dir, init_dict=None):
-        super().__init__()
-        self.repo_storage = False
-        self.name = self._get_validated_profile_name(name)
-        self.profile_dir = self._get_validated_profile_dir(repo_profile_dir)
-        self.blender_program: BlenderProgram = init_dict.get('blender_program', None)
-        self.blender_venv: BlenderVenv = init_dict.get('blender_venv', None)
-        self.blender_addons: [BlenderAddon] = init_dict.get('blender_addons', [])
-        self.blender_scripts: [BlenderScript] = init_dict.get('blender_scripts', [])
 
-        self.custom_config_dir = None
-        self.custom_script_dir = None
-        self.custom_addon_dir = None
-        self.custom_startup_script_dir = None
-        self.custom_additional_script_dir = None
+class Profile(Component):
 
-    def _get_validated_profile_name(self, name) -> str:
-        if SF.is_valid_name_for_path(name):
-            return name
+    def __init__(self, name):
+        super().__init__(None)
+        self.dill_extension = Config.get_dill_extension(self)
+        self.__class__.dill_extension = self.dill_extension
+        self.is_renamable = True
+        self.is_duplicable = True
+        self.init_params = {'name': name}
+
+    def create_instance(self) -> Result:
+        self.name = self.init_params['name']
+        if SF.is_valid_name_for_path(self.name):
+            self.blender_program: BlenderProgram = None
+            self.blender_setup: BlenderSetup = None
+            self.blender_venv: BlenderVenv = None
+            return Result(True, f'Profile {self.name} created', self)
         else:
-            raise ValueError(f'Invalid profile name {name}')
+            return Result(False, f'Invalid name for Profile: {self.name}')
 
-    def _get_validated_profile_dir(self, repo_profile_dir: str or Path) -> Path:
-        """
-        Validate the profile directory inside the repo profile dir. If it not exists, create it.
-
-        :param repo_profile_dir: a str or Path object of the path to the repo profile directory
-
-        :return: a Path object of the validated profile directory
-        """
-        repo_profile_dir = Path(repo_profile_dir)
-        result = SF.create_target_dir(repo_profile_dir)
-        if not result:
-            raise Exception(f'Error validating profile directory in the repository at {repo_profile_dir}')
-        profile_dir = repo_profile_dir / f'.{self.name}'
-        result = SF.create_target_dir(profile_dir)
-        if not result:
-            raise Exception(f'Error validating the profile directory at {profile_dir}')
-        return profile_dir
-
-    def set_blender_program(self, blender_program: BlenderProgram):
-        self.blender_program = blender_program
-
-    def set_blender_venv(self, blender_venv: BlenderVenv):
-        if blender_venv.blender_program == self.blender_program:
-            self.blender_venv = blender_venv
-        else:
-            self.blender_venv = None
-            blog(3, f'Blender venv {blender_venv} does not match the Blender program {self.blender_program}')
-
-    def add_blender_addons(self, blender_addons: [BlenderAddon]):
-        self.blender_addons.extend(blender_addons)
-
-    def add_blender_scripts(self, blender_scripts: [BlenderScript]):
-        self.blender_scripts.extend(blender_scripts)
-
-    def _create_custom_config_dir(self):
-        custom_config_dir = self.profile_dir / 'config'
-        if not custom_config_dir.exists():
-            os.makedirs(custom_config_dir)
-        if custom_config_dir.exists() and custom_config_dir.is_dir():
-            self.custom_config_dir = custom_config_dir
-        else:
-            raise Exception(f'Error creating custom config directory at {custom_config_dir}')
-
-    def _create_custom_script_dir(self):
-
-        def create_sub_dir(sub_dir_name):
-            sub_dir = custom_script_dir / sub_dir_name
-            if not sub_dir.exists():
-                os.makedirs(sub_dir)
-            if sub_dir.exists() and sub_dir.is_dir():
-                return sub_dir
+    def add_component(self, component: Component) -> Result:
+        if isinstance(component, BlenderProgram):
+            if component.verify():
+                self.blender_program = component
+                return Result(True, f'BlenderProgram {component.name} added to Profile {self.name}')
             else:
-                raise Exception(f'Error creating sub-directory in custom script directory at {sub_dir}')
-
-        # create a custom script directory with an addons and startup subdirectory
-        custom_script_dir = self.profile_dir / 'scripts'
-        if not custom_script_dir.exists():
-            os.makedirs(custom_script_dir)
-        if custom_script_dir.exists() and custom_script_dir.is_dir():
-            self.custom_script_dir = custom_script_dir
-            self.custom_addon_dir = create_sub_dir('addons')
-            self.custom_startup_script_dir = create_sub_dir('startup')
-            self.custom_additional_script_dir = create_sub_dir(f'{Config.app_name.lower()}_scripts')
+                return Result(False, f'BlenderProgram {component.name} cannot be added to Profile {self.name}')
+        elif isinstance(component, BlenderSetup):
+            if component.verify():
+                self.blender_setup = component
+                return Result(True, f'BlenderSetup {component.name} added to Profile {self.name}')
+            else:
+                return Result(False, f'BlenderSetup {component.name} cannot be added to Profile {self.name}')
+        elif isinstance(component, BlenderVenv):
+            if component.verify():
+                # Verify if the BlenderVenv was created from the same BlenderProgram as the one in this Profile
+                if self.blender_program is None:
+                    return Result(False, f'BlenderVenv cannot be set before BlenderProgram for Profile {self.name}')
+                else:
+                    if component.blender_program == self.blender_program:
+                        self.blender_venv = component
+                        return Result(True, f'BlenderVenv {component.name} added to Profile {self.name}')
+                    else:
+                        return Result(False, f'BlenderVenv {component.name} was created from a different '
+                                             f'BlenderProgram than the one in Profile {self.name}')
+            else:
+                return Result(False, f'BlenderVenv {component.name} cannot be added to Profile {self.name}')
         else:
-            raise Exception(f'Error creating custom script directory at {custom_script_dir}')
+            return Result(False, f'Component type {component.__class__.__name__} cannot be added to Profile '
+                                 f'{self.name}')
 
-    def _deploy_addons_in_custom_script_dir(self):
-        if self.custom_script_dir is not None:
-            err_messages = []
-            for blender_addon in self.blender_addons:
-                try:
-                    blender_addon.deploy(self.custom_addon_dir, delete_existing=True)
-                except Exception as e:
-                    err_messages.append(f'Error deploying addon {blender_addon.name}: {e}')
+    def launch_blender(self, launch_config: BlenderLaunchConfig = BlenderLaunchConfig()) -> Result:
+        if self.blender_program is not None:
+            # Set BlenderSetup's config and scripts as environment variables for Blender to use
+            if self.blender_setup is not None and launch_config.if_use_blender_setup_config:
+                user_config_path = self.blender_setup.data_path / self.blender_setup.setup_blender_config_path
+                os.environ['BLENDER_USER_CONFIG'] = str(user_config_path)
+            if self.blender_setup is not None and launch_config.if_use_blender_setup_addons_scripts:
+                user_script_path = self.blender_setup.data_path / self.blender_setup.setup_scripts_path
+                os.environ['BLENDER_USER_SCRIPTS'] = str(user_script_path)
 
-    def _deploy_scripts_in_custom_script_dir(self):
-        pass
+            # Set pth file to include venv's site-packages, bpy, and local libraries for Blender to use
+            if self.blender_venv is not None:
+                # Always remove the pth file first
+                result = self.blender_venv.remove_blender_pth()
+                if not result:
+                    return result
+                if launch_config.if_include_venv_site_packages:
+                    result = self.blender_venv.add_site_packages_to_blender_pth()
+                    if not result:
+                        return result
+                if launch_config.if_include_venv_bpy:
+                    result = self.blender_venv.add_bpy_package_to_blender_pth()
+                    if not result:
+                        return result
+                if launch_config.if_include_venv_local_libs:
+                    result = self.blender_venv.add_dev_libraries_to_blender_pth()
+                    if not result:
+                        return result
 
-    def configure_venv(self):
-        pass
-
-    def launch_venv_in_shell(self, add_local_libs=True, add_bpy_path=True):
-        if add_local_libs:
-            local_libs_path = self.venv_path / self.venv_local_libraries_path
-            os.environ['PYTHONPATH'] += ';' + local_libs_path.as_posix()
-        if add_bpy_path:
-            local_bpy_package_path = self.venv_path / self.venv_bpy_package_path
-            os.environ['PYTHONPATH'] += ';' + local_bpy_package_path.as_posix()
-        if sys.platform == "win32":
-            activate_script = self.venv_path / 'Scripts' / 'activate.bat'
-            command = f'start cmd.exe /K && "{activate_script}"'
+            # Launch Blender
+            blender_exe_path = self.blender_program.data_path / self.blender_program.blender_exe_path
+            if blender_exe_path.exists():
+                if sys.platform == "win32":
+                    command = f'cmd.exe /k start cmd.exe /c "{blender_exe_path}"'
+                else:
+                    raise NotImplementedError
+                    # command = f'source {activate_script} && "{blender_exe_path}"'
+                popen_command(command, os_env=os.environ)
+                return Result(True, f'Blender launched successfully')
+            else:
+                return Result(False, f'Blender executable not found at {blender_exe_path}')
         else:
-            raise NotImplementedError
-            # activate_script = self.venv_path / 'bin' / 'activate'
-            # command = f'source {activate_script}'
-        subprocess.Popen(command, shell=True, env=os.environ)
+            return Result(False, f'BlenderProgram is not set for Profile {self.name}')
 
-    # os.environ['BLENDER_USER_SCRIPTS'] = r'c:\TechDepot\AvatarTools\Blender\Launcher\shared_scripts'
-    # os.environ['BLENDER_USER_CONFIG'] = r'c:\Users\yong-\.source\config'
-
-    def launch_blender(blender_path, env_path):
-        if sys.platform == "win32":
-            activate_script = env_path / 'Scripts' / 'activate.bat'
-            command = f'cmd.exe /c "{activate_script} && "{blender_path}"'
+    def configure_venv(self, launch_config: VenvLaunchConfig = VenvLaunchConfig()) -> Result:
+        if self.blender_program is not None:
+            if self.blender_venv is not None:
+                # Always remove the pth file first
+                result = self.blender_venv.remove_venv_pth()
+                if not result:
+                    return result
+                if launch_config.if_include_venv_bpy:
+                    result = self.blender_venv.add_bpy_package_to_venv_pth()
+                    if not result:
+                        return result
+                if launch_config.if_include_venv_local_libs:
+                    result = self.blender_venv.add_dev_libraries_to_venv_pth()
+                    if not result:
+                        return result
+                return Result(True, f'Venv configured successfully', self.blender_venv.data_path)
+            else:
+                return Result(False, f'Blender venv is not set for Profile {self.name}')
         else:
-            activate_script = env_path / 'bin' / 'activate'
-            command = f'source {activate_script} && "{blender_path}"'
-        return run_command(command)
+            return Result(False, f'Blender program is not set for Profile {self.name}')
+
+    def launch_venv(self, launch_config: VenvLaunchConfig = VenvLaunchConfig()) -> Result:
+        result = self.configure_venv(launch_config)
+        if not result:
+            return result
+        # Launch venv
+        activate_script = self.blender_venv.get_activate_script_path()
+        if activate_script is not None:
+            if sys.platform == "win32":
+                command = f'cmd.exe /k start cmd.exe /k "{activate_script}"'
+            else:
+                # command = f'source {activate_script}'
+                raise NotImplementedError
+            popen_command(command)
+            return Result(True, f'Blender venv launched successfully')
+        else:
+            return Result(False, f'Blender venv activate script not found')
 
     def verify(self) -> bool:
-        return True
+        return all([
+            True if self.blender_program is None else self.blender_program.verify(),
+            True if self.blender_setup is None else self.blender_setup.verify(),
+            True if self.blender_venv is None else self.blender_venv.verify(),
+        ])
 
     def __str__(self):
-        return f'Profile: {self.name}'
+        return f'{self.__class__.__name__}: {self.name}'
 
     def __eq__(self, other: 'Profile'):
         """
-        The equality of 2 Profile objects is determined by the addon path instead of the instance itself. If the
-        instance equality is required, use compare_uuid() from Dillable class.
+        The equality of 2 Profile objects is determined by its name.
 
         :param other: another Profile object
 
-        :return: True if the Profile path of this instance is the same as the other instance, otherwise False
+        :return: True if equal, otherwise False
         """
         if issubclass(other.__class__, Profile):
-            return self.profile_dir == other.profile_dir
+            return self.name == other.name
         return False
 
     def __hash__(self):
-        if self._hash is None:
-            self._hash = self.get_stable_hash(self.profile_dir.as_posix())
-        return self._hash
+        return self.get_stable_hash(self.name)
 
 
 class ProfileManager:
@@ -192,7 +192,5 @@ class ProfileManager:
         raise NotImplementedError
 
     @classmethod
-    def create_profile(cls, name, repo_profile_dir, init_dict=None) -> Profile:
-        return Profile(name, repo_profile_dir, init_dict=init_dict)
-
-r'mklink "c:\TechDepot\AvatarTools\Blender\Launcher\stable\blender-3.6.7-windows-x64\3.6\scripts\addons\bermesio_cone_creator.py" "c:\TechDepot\Github\bermesio\_data\test_data\dev\bermesio_cone_creator.py'
+    def create(cls, name: str) -> Result:
+        return Profile(name).create_instance()

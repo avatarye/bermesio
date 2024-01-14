@@ -21,14 +21,10 @@ def test_blender_setup_class():
     result = repo.add_component(blender_setup)
     assert result, 'Error adding BlenderSetup to repo'
     blender_config_path = blender_setup.data_path / blender_setup.setup_blender_config_path
-    blender_disabled_config_path = blender_setup.data_path / blender_setup.setup_disabled_blender_config_path
-    result = blender_setup.change_blender_config('enabled')
-    assert result and blender_config_path.exists(), 'Error changing Blender config'
-    result = blender_setup.change_blender_config('disabled')
-    assert result and blender_disabled_config_path.exists(), 'Error changing Blender config'
-    result = blender_setup.change_blender_config('not_set')
-    assert result and not blender_config_path.exists() and not blender_disabled_config_path.exists(), \
-        'Error changing Blender config'
+    result = blender_setup.add_blender_config()
+    assert result and blender_config_path.exists(), 'Error adding Blender config'
+    result = blender_setup.remove_blender_config()
+    assert result and not blender_config_path.exists(), 'Error removing Blender config'
 
     # Test adding and removing components
     result = blender_setup.add_component(list(repo.blender_program_repo.pool.values())[0])

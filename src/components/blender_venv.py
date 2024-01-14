@@ -335,6 +335,20 @@ class BlenderVenv(Component):
 
     # endregion
 
+    def get_activate_script_path(self) -> Path or None:
+        """
+        Get the activate script path of the virtual environment.
+
+        :return: a Path object of the activate script path
+        """
+        if sys.platform == "win32":
+            activate_script = self.data_path / 'Scripts' / 'activate.bat'
+            if activate_script.exists():
+                return activate_script
+        else:
+            raise NotImplementedError
+        return
+
     def verify(self) -> bool:
         """
         Verify if the Blender virtual environment is valid. It is valid if the BlenderProgram object is valid and the

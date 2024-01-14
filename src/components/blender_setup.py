@@ -26,8 +26,6 @@ class BlenderSetup(Component):
     setup_json_path = Path(f'.blender_setup.json')
     # Custom Blender config directory
     setup_blender_config_path = Path('config')
-    # Custom disabled Blender config directory
-    setup_disabled_blender_config_path = Path('config_disabled')
     # Inherent "Scripts" directory to a Blender setup
     setup_scripts_path = Path('scripts')
     # Addon directory
@@ -73,7 +71,6 @@ class BlenderSetup(Component):
         :param repo_dir: a str or Path object of the path to the sub-repo directory for BlenderSetup
         :param name: a str of the name of the Blender setup
         """
-
         data_path = Path(repo_dir) / name  # The data path is a subdirectory in the setup repo directory
         super().__init__(data_path)
         self.dill_extension = Config.get_dill_extension(self)
@@ -98,7 +95,7 @@ class BlenderSetup(Component):
                 return json.load(f)
         else:
             return  {
-                'blender_config': 'not_set',  # 'not_set', 'enabled', 'disabled', or 'error'
+                'blender_config': False,
                 'released_addons': self.released_addons,
                 'dev_addons': self.dev_addons,
                 'startup_scripts': self.startup_scripts,
@@ -114,6 +111,8 @@ class BlenderSetup(Component):
         :return: a Result object indicating if the creation is successful, the message generated during the creation,
                  and this object if successful
         """
+        # Make sure the setup directory is inside the repo
+        assert Config.repo_dir in Path(self.init_params['repo_dir']).parents
         # Create the setup directory if not exists, this is a new BlenderSetup instance
         if self.data_path is None:
             if SF.is_valid_name_for_path(self.init_params['name']):
@@ -126,6 +125,8 @@ class BlenderSetup(Component):
         if self.data_path.exists():
             # Initialize the BlenderSetup instance's attributes
             self.name = self.data_path.name
+            self.is_stored_in_repo = True
+            self.repo_rel_path = self.data_path.relative_to(Config.repo_dir)
             self.released_addons = {}  # {addon hash:addon relative path}
             self.dev_addons = {}
             self.regular_scripts = {}
@@ -146,17 +147,9 @@ class BlenderSetup(Component):
         :return: a Result object indicating if the verification is successful
         """
 
-        def get_blender_config_status() -> Result:
+        def get_blender_config_status() -> bool:
             blender_config = self.data_path / self.setup_blender_config_path
-            blender_disabled_config = self.data_path / self.setup_disabled_blender_config_path
-            if blender_config.exists() and not blender_disabled_config.exists():
-                return Result(True, '', 'enabled')
-            elif not blender_config.exists() and blender_disabled_config.exists():
-                return Result(True, '', 'disabled')
-            elif not blender_config.exists() and not blender_disabled_config.exists():
-                return Result(True, '', 'not_set')
-            else:
-                return Result(False, f'Blender both enabled and disabled config directories found', 'error')
+            return blender_config.exists()
 
         def verify_component_dict(component_dict) -> Result:
             if len(component_dict) == 0:
@@ -169,9 +162,7 @@ class BlenderSetup(Component):
 
         results = []
         # Check Blender config
-        result = get_blender_config_status()
-        self.setup_json['blender_config'] = result.data
-        results.append(result)
+        self.setup_json['blender_config'] = get_blender_config_status()
 
         # Check addons
         results.append(verify_component_dict(self.setup_json['released_addons']))
@@ -197,65 +188,48 @@ class BlenderSetup(Component):
     def verify_components_against_repo(self, repo) -> Result:
         raise NotImplementedError
 
-    def change_blender_config(self, status) -> Result:
+    def add_blender_config(self) -> Result:
         """
-        Change the Blender config status. The status can be 'not_set', 'enabled', or 'disabled' and manipulates the
-        setup config and the actual directories accordingly.
+        Add a Blender config directory to the setup directory. The Blender config directory is used as a custom config
+        for Blender if proper Blender env var points to it.
 
-        :param status: a str of the status to change to
-
-        :return: a Result object indicating if the change is successful, the final status is returned in the data.
+        :return: a Result object indicating if the addition is successful
         """
-        blender_config_path = self.data_path / self.setup_blender_config_path
-        blender_disabled_config_path = self.data_path / self.setup_disabled_blender_config_path
-        if blender_config_path.exists() and blender_disabled_config_path.exists():
-            result = Result(False, f'Both Blender config and disabled config directories found', 'error')
-        # Delete both config and disabled config
-        if status == 'not_set':
-            result = (SF.remove_target_path(self.data_path / self.setup_blender_config_path) and
-                      SF.remove_target_path(self.data_path / self.setup_disabled_blender_config_path))
-            if result:
-                result = Result(True, '', 'not_set')
-            else:
-                result = Result(False, f'Error deleting both Blender config or disabled config directories', 'error')
-        # Enable Blender config
-        elif status == 'enabled':
-            if blender_config_path.exists() and not blender_disabled_config_path.exists():  # Already enabled
-                result = Result(True, '', 'enabled')
-            elif not blender_config_path.exists() and blender_disabled_config_path.exists():  # Restore from disabled
-                try:
-                    shutil.move(blender_disabled_config_path, blender_config_path)
-                    result = Result(True, '', 'enabled')
-                except Exception as e:
-                    result = Result(False, f'Error moving {blender_disabled_config_path} to {blender_config_path}',
-                                    'error')
-            elif not blender_config_path.exists() and not blender_disabled_config_path.exists():  # Create new
-                result = SF.create_target_dir(blender_config_path)
-                if result:
-                    result = Result(True, '', 'enabled')
-                else:
-                    result = Result(False, f'Error creating {blender_config_path}', 'error')
-        # Disable Blender config
-        elif status == 'disabled':
-            if blender_config_path.exists() and not blender_disabled_config_path.exists():  # Disable
-                try:
-                    shutil.move(blender_config_path, blender_disabled_config_path)
-                    result = Result(True, '', 'disabled')
-                except Exception as e:
-                    result = Result(False, f'Error moving {blender_config_path} to {blender_disabled_config_path}',
-                                    'error')
-            elif not blender_config_path.exists() and blender_disabled_config_path.exists():  # Already disabled
-                result = Result(True, '', 'disabled')
-            elif not blender_config_path.exists() and not blender_disabled_config_path.exists():  # Neither exists
-                result = Result(True, '', 'not_set')
-        self.setup_json['blender_config'] = result.data
+        blender_config = self.data_path / self.setup_blender_config_path
+        if not blender_config.exists():
+            result = SF.create_target_dir(blender_config)
+            if not result:
+                return result
+            result = self.save()
+            if not result:
+                return result
+        if blender_config.exists():
+            self.setup_json['blender_config'] = True
+            return Result(True, f'Blender config created at {blender_config}', blender_config)
+        else:
+            self.setup_json['blender_config'] = False
+            return Result(False, f'Error adding Blender config to {blender_config}')
 
-        # Update the setup config
-        save_result = self.save()
-        if not save_result:
-            return save_result
+    def remove_blender_config(self) -> Result:
+        """
+        Remove the Blender config directory in the setup directory.
 
-        return result
+        :return: a Result object indicating if the removal is successful
+        """
+        blender_config = self.data_path / self.setup_blender_config_path
+        if blender_config.exists():
+            result = SF.remove_target_path(blender_config)
+            if not result:
+                return result
+            result = self.save()
+            if not result:
+                return result
+        if blender_config.exists():
+            self.setup_json['blender_config'] = True
+            return Result(False, f'Error removing Blender config at {blender_config}', blender_config)
+        else:
+            self.setup_json['blender_config'] = False
+            return Result(True, f'Blender config removed at {blender_config}')
 
     def _get_component_belonging_attr(self, component: Component) -> (dict, Path) or (None, None):
         """

@@ -26,22 +26,23 @@ class Component(Dillable):
         self.init_params = {}  # Parameters used to initialize this instance.
 
         # Perform a preliminary check on data_path and set the paths
-        data_path = Path(data_path)
-        if data_path.exists():
-            # If the data path is inside the repo, this component is initialized from existing data in the repo.
-            if Config.repo_dir in data_path.parents:
-                self.data_path = data_path
-                self.source_path = None
-                self.repo_rel_path = data_path.relative_to(Config.repo_dir)
-                self.if_store_in_repo = True
-                self.is_stored_in_repo = True
+        if data_path is not None:  # Some pure configuration class, like Profile, does not have data path
+            data_path = Path(data_path)
+            if data_path.exists():
+                # If the data path is inside the repo, this component is initialized from existing data in the repo.
+                if Config.repo_dir in data_path.parents:
+                    self.data_path = data_path
+                    self.source_path = None
+                    self.repo_rel_path = data_path.relative_to(Config.repo_dir)
+                    self.if_store_in_repo = True
+                    self.is_stored_in_repo = True
+                else:
+                    # If the data path is outside the repo, this component is initialized from external data.
+                    self.data_path = data_path
+                    self.source_path = data_path
+                    self.repo_rel_path = None
             else:
-                # If the data path is outside the repo, this component is initialized from external data.
-                self.data_path = data_path
-                self.source_path = data_path
-                self.repo_rel_path = None
-        else:
-            self.data_path = None
+                self.data_path = None
 
     def create_instance(self) -> Result:
         raise NotImplementedError  # Force the subclass to implement this method.

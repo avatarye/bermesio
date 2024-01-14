@@ -74,7 +74,7 @@ class Repository:
             'storage_dir': 'Profiles',
             'class': Profile,
             'manager': ProfileManager,
-            'creation_fn': ProfileManager.create_profile,
+            'creation_fn': ProfileManager.create,
         },
     }
     sub_repos = {}  # A dict of sub repos indexed by the same keys above
