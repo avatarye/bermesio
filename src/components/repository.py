@@ -22,18 +22,6 @@ class Repository:
     component_save_dir_name = Path('.repo')  # The path for saving components' dill files
 
     sub_repo_config = {
-        'profile_repo': {
-            'storage_dir': 'Profiles',
-            'class': Profile,
-            'manager': ProfileManager,
-            'creation_fn': ProfileManager.create_profile,
-        },
-        'blender_setup_repo': {
-            'storage_dir': 'Setups',
-            'class': BlenderSetup,
-            'manager': BlenderSetupManager,
-            'creation_fn': BlenderSetupManager.create,
-        },
         'blender_program_repo': {
             'storage_dir': 'BlenderPrograms',
             'class': BlenderProgram,
@@ -75,6 +63,18 @@ class Repository:
             'class': PythonDevLibrary,
             'manager': PythonDevLibraryManager,
             'creation_fn': PythonDevLibraryManager.create
+        },
+        'blender_setup_repo': {
+            'storage_dir': 'Setups',
+            'class': BlenderSetup,
+            'manager': BlenderSetupManager,
+            'creation_fn': BlenderSetupManager.create,
+        },
+        'profile_repo': {
+            'storage_dir': 'Profiles',
+            'class': Profile,
+            'manager': ProfileManager,
+            'creation_fn': ProfileManager.create_profile,
         },
     }
     sub_repos = {}  # A dict of sub repos indexed by the same keys above

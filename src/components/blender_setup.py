@@ -1,19 +1,26 @@
-import copy
 import json
-import os
 from pathlib import Path
 import shutil
 
 from commons.common import Result, ResultList, blog, SharedFunctions as SF
-from components.blender_addon import (BlenderAddon, BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon,
-                                      BlenderDevDirectoryAddon, BlenderDevSingleFileAddon, BlenderAddonManager)
+from components.blender_addon import (BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon,
+                                      BlenderDevDirectoryAddon, BlenderDevSingleFileAddon)
 from components.blender_script import (BlenderRegularScript, BlenderStartupScript, BlenderDevRegularScript,
-                                       BlenderDevStartupScript, BlenderScriptManager)
+                                       BlenderDevStartupScript)
 from components.component import Component
 from config import Config
 
 
 class BlenderSetup(Component):
+    """
+    A class representing a Blender setup. A Blender setup is a directory that contains a Blender config directory, which
+    can be used a custom config for Blender if proper Blender env var points to it, and a "scripts" directory, which
+    can be used as a custom scripts directory for Blender if proper Blender env var points to it. The "scripts"
+    directory contains an "addons" subdirectory for storing addons, a "startup" subdirectory for storing startup
+    scripts. An additional "regular" subdirectory is also created for storing regular scripts. A BlenderSetup instance
+    is a collection of all BlenderAddon and BlenderScript objects that are associated with this setup and deployed to
+    its directory in the repo.
+    """
 
     # Setup config file name
     setup_json_path = Path(f'.blender_setup.json')
@@ -30,6 +37,7 @@ class BlenderSetup(Component):
     # Additional regular script directory, must be the same as BlenderScript class's
     setup_regular_scripts_path = Path(f'scripts/{Config.app_name.lower()}_scripts')
 
+    # A dict helps to establish the relationship between component classes and their corresponding directories
     component_class_dict = {
         'released_addons': {
             'classes': [BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon],
@@ -41,7 +49,7 @@ class BlenderSetup(Component):
         },
         'startup_scripts': {
             'classes': [BlenderStartupScript],
-            'dir': setup_scripts_path,
+            'dir': setup_scripts_path,  # The BlenderScript subclasses know what subdir to use, hence the script dir
         },
         'regular_scripts': {
             'classes': [BlenderRegularScript],
@@ -58,6 +66,14 @@ class BlenderSetup(Component):
     }
 
     def __init__(self, repo_dir: str or Path, name: str):
+        """
+        Initialize a BlenderSetup instance. "name" is mandatory and determines the name of the setup directory in the
+        repo.
+
+        :param repo_dir: a str or Path object of the path to the sub-repo directory for BlenderSetup
+        :param name: a str of the name of the Blender setup
+        """
+
         data_path = Path(repo_dir) / name  # The data path is a subdirectory in the setup repo directory
         super().__init__(data_path)
         self.dill_extension = Config.get_dill_extension(self)
@@ -70,6 +86,12 @@ class BlenderSetup(Component):
         self.init_params = {'repo_dir': repo_dir, 'name': name}
 
     def _get_setup_config(self) -> dict:
+        """
+        Get the setup config from the setup config file. If the setup config file doesn't exist, create a new one with
+        default values.
+
+        :return: a dict of the setup config
+        """
         setup_json_path = self.data_path / self.setup_json_path
         if setup_json_path.exists():
             with open(self.data_path / self.setup_json_path, 'r') as f:
@@ -86,6 +108,12 @@ class BlenderSetup(Component):
             }
 
     def create_instance(self) -> Result:
+        """
+        Create a BlenderSetup instance.
+
+        :return: a Result object indicating if the creation is successful, the message generated during the creation,
+                 and this object if successful
+        """
         # Create the setup directory if not exists, this is a new BlenderSetup instance
         if self.data_path is None:
             if SF.is_valid_name_for_path(self.init_params['name']):
@@ -166,7 +194,18 @@ class BlenderSetup(Component):
         else:
             return result
 
+    def verify_components_against_repo(self, repo) -> Result:
+        raise NotImplementedError
+
     def change_blender_config(self, status) -> Result:
+        """
+        Change the Blender config status. The status can be 'not_set', 'enabled', or 'disabled' and manipulates the
+        setup config and the actual directories accordingly.
+
+        :param status: a str of the status to change to
+
+        :return: a Result object indicating if the change is successful, the final status is returned in the data.
+        """
         blender_config_path = self.data_path / self.setup_blender_config_path
         blender_disabled_config_path = self.data_path / self.setup_disabled_blender_config_path
         if blender_config_path.exists() and blender_disabled_config_path.exists():
@@ -219,6 +258,13 @@ class BlenderSetup(Component):
         return result
 
     def _get_component_belonging_attr(self, component: Component) -> (dict, Path) or (None, None):
+        """
+        Get the attribute and directory that a component belongs to.
+
+        :param component: a Component object
+
+        :return: a tuple of the attribute and directory that the component belongs to
+        """
         for key, val in self.component_class_dict.items():
             class_list = val['classes']
             if component.__class__ in class_list:
@@ -227,6 +273,13 @@ class BlenderSetup(Component):
         return None, None
 
     def add_component(self, component: Component) -> Result:
+        """
+        Add a component to the setup. The component must be a subclass of BlenderAddon or BlenderScript. The component
+        will be deployed to the corresponding directory in the setup directory.
+
+        :param component: a Component object
+        :return: a Result object indicating if the addition is successful
+        """
         attr, dir = self._get_component_belonging_attr(component)
         if None not in (attr, dir):
             if hash(component) not in attr:
@@ -241,7 +294,6 @@ class BlenderSetup(Component):
                 if not result:
                     return result
 
-
                 return Result(True)
             else:
                 return Result(False, f'Component {component} already exists in the setup')
@@ -249,21 +301,45 @@ class BlenderSetup(Component):
             return Result(False, f'Component {component} is not supported in the setup')
 
     def remove_component(self, component: Component) -> Result:
+        """
+        Remove a component from the setup. The component must be a subclass of BlenderAddon or BlenderScript. The
+        component will be removed from the corresponding directory in the setup directory.
 
-        # Update the setup config
-        result = self.save()
-        if not result:
-            return result
+        :param component: a Component object
+        :return: a Result object indicating if the removal is successful
+        """
+        attr, dir = self._get_component_belonging_attr(component)
+        if None not in (attr, dir):
+            if hash(component) in attr:
+                result = SF.remove_target_path(self.data_path / attr[hash(component)])
+                if not result:
+                    return result
+                del attr[hash(component)]
+
+                # Update the setup config
+                result = self.save()
+                if not result:
+                    return result
+
+                return Result(True)
+            else:
+                return Result(False, f'Component {component} doesn\'t exist in the setup')
+        else:
+            return Result(False, f'Component {component} is not supported in the setup')
 
     def update_component(self, component: Component) -> Result:
-
-        # Update the setup config
-        result = self.save()
-        if not result:
-            return result
+        raise NotImplementedError
 
     def save(self, save_dill=True) -> Result:
-        # Save setup config file
+        """
+        Save the setup config file and the dill file. The dill file is saved only if this instance has been saved to the
+        repo and the save_dill flag is set to True.
+
+        :param save_dill: a flag indicating whether to save the dill file
+
+        :return: a Result object indicating if the saving is successful
+        """
+        # Save setup json file
         setup_json_path = self.data_path / self.setup_json_path
         try:
             with open(setup_json_path, 'w') as f:
