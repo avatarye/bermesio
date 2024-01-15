@@ -1,8 +1,7 @@
 import json
 from pathlib import Path
-import shutil
 
-from commons.common import Result, ResultList, blog, SharedFunctions as SF
+from commons.common import Result, ResultList, Dillable, SharedFunctions as SF
 from components.blender_addon import (BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon,
                                       BlenderDevDirectoryAddon, BlenderDevSingleFileAddon)
 from components.blender_script import (BlenderRegularScript, BlenderStartupScript, BlenderDevRegularScript,
@@ -175,7 +174,7 @@ class BlenderSetup(Component):
         results.append(verify_component_dict(self.setup_json['dev_regular_scripts']))
 
         # Update the setup config
-        result = self.save(save_dill=False)  # Don't save dill file here, it may not be saved by the repo yet
+        result = self.save_config_json()  # Don't save dill file here, it may not be saved by the repo yet
         if not result:
             return result
 
@@ -200,7 +199,7 @@ class BlenderSetup(Component):
             result = SF.create_target_dir(blender_config)
             if not result:
                 return result
-            result = self.save()
+            result = self.save_config_json()
             if not result:
                 return result
         if blender_config.exists():
@@ -221,7 +220,7 @@ class BlenderSetup(Component):
             result = SF.remove_target_path(blender_config)
             if not result:
                 return result
-            result = self.save()
+            result = self.save_config_json()
             if not result:
                 return result
         if blender_config.exists():
@@ -246,6 +245,7 @@ class BlenderSetup(Component):
                     return getattr(self, key), val['dir']
         return None, None
 
+    @Dillable.save_dill
     def add_component(self, component: Component) -> Result:
         """
         Add a component to the setup. The component must be a subclass of BlenderAddon or BlenderScript. The component
@@ -264,7 +264,7 @@ class BlenderSetup(Component):
                 attr[hash(component)] = deployed_path.relative_to(self.data_path).as_posix()
 
                 # Update the setup config
-                result = self.save()
+                result = self.save_config_json()
                 if not result:
                     return result
 
@@ -274,6 +274,7 @@ class BlenderSetup(Component):
         else:
             return Result(False, f'Component {component} is not supported in the setup')
 
+    @Dillable.save_dill
     def remove_component(self, component: Component) -> Result:
         """
         Remove a component from the setup. The component must be a subclass of BlenderAddon or BlenderScript. The
@@ -291,7 +292,7 @@ class BlenderSetup(Component):
                 del attr[hash(component)]
 
                 # Update the setup config
-                result = self.save()
+                result = self.save_config_json()
                 if not result:
                     return result
 
@@ -301,15 +302,14 @@ class BlenderSetup(Component):
         else:
             return Result(False, f'Component {component} is not supported in the setup')
 
+    @Dillable.save_dill
     def update_component(self, component: Component) -> Result:
         raise NotImplementedError
 
-    def save(self, save_dill=True) -> Result:
+    def save_config_json(self) -> Result:
         """
         Save the setup config file and the dill file. The dill file is saved only if this instance has been saved to the
         repo and the save_dill flag is set to True.
-
-        :param save_dill: a flag indicating whether to save the dill file
 
         :return: a Result object indicating if the saving is successful
         """
@@ -320,11 +320,6 @@ class BlenderSetup(Component):
                 json.dump(self.setup_json, f, indent=4)
         except Exception as e:
             return Result(False, f'Error writing to {setup_json_path}')
-        # Save dill file
-        if save_dill:
-            result = self.resave_to_disk()
-            if not result:
-                return result
         return Result(True)
 
     def __str__(self):

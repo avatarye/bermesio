@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 import os
 import sys
-import subprocess
 
-from commons.common import Result, ResultList, blog, SharedFunctions as SF
-from commons.command import run_command, popen_command
+from commons.common import Result, Dillable, SharedFunctions as SF
+from commons.command import popen_command
 from components.blender_program import BlenderProgram
 from components.blender_setup import BlenderSetup
 from components.blender_venv import BlenderVenv
@@ -14,6 +13,9 @@ from config import Config
 
 @dataclass
 class BlenderLaunchConfig:
+    """
+    A class representing the configuration for launching Blender.
+    """
     if_use_blender_setup_config: bool = True
     if_use_blender_setup_addons_scripts: bool = True
     if_include_venv_site_packages: bool = True
@@ -23,11 +25,18 @@ class BlenderLaunchConfig:
 
 @dataclass
 class VenvLaunchConfig:
+    """
+    A class representing the configuration for launching Blender venv.
+    """
     if_include_venv_bpy: bool = True
     if_include_venv_local_libs: bool = True
 
 
 class Profile(Component):
+    """
+    A class representing a Blender profile with a BlenderProgram, a BlenderSetup, and a BlenderVenv. This is the class
+    that is used to launch Blender and its venv.
+    """
 
     def __init__(self, name):
         super().__init__(None)
@@ -38,6 +47,11 @@ class Profile(Component):
         self.init_params = {'name': name}
 
     def create_instance(self) -> Result:
+        """
+        Create a Profile object with the specified name.
+
+        :return: a Result object indicating if the creation is successful
+        """
         self.name = self.init_params['name']
         if SF.is_valid_name_for_path(self.name):
             self.blender_program: BlenderProgram = None
@@ -47,38 +61,77 @@ class Profile(Component):
         else:
             return Result(False, f'Invalid name for Profile: {self.name}')
 
+    @Dillable.save_dill
     def add_component(self, component: Component) -> Result:
+        """
+        Add a component to this Profile.
+
+        :param component: a Component object, must be one of the following: BlenderProgram, BlenderSetup, BlenderVenv
+
+        :return: a Result object indicating if the adding is successful
+        """
         if isinstance(component, BlenderProgram):
             if component.verify():
                 self.blender_program = component
-                return Result(True, f'BlenderProgram {component.name} added to Profile {self.name}')
+                result = Result(True, f'BlenderProgram {component.name} added to Profile {self.name}')
             else:
-                return Result(False, f'BlenderProgram {component.name} cannot be added to Profile {self.name}')
+                result = Result(False, f'BlenderProgram {component.name} cannot be added to Profile {self.name}')
         elif isinstance(component, BlenderSetup):
             if component.verify():
                 self.blender_setup = component
-                return Result(True, f'BlenderSetup {component.name} added to Profile {self.name}')
+                result = Result(True, f'BlenderSetup {component.name} added to Profile {self.name}')
             else:
-                return Result(False, f'BlenderSetup {component.name} cannot be added to Profile {self.name}')
+                result = Result(False, f'BlenderSetup {component.name} cannot be added to Profile {self.name}')
         elif isinstance(component, BlenderVenv):
             if component.verify():
                 # Verify if the BlenderVenv was created from the same BlenderProgram as the one in this Profile
                 if self.blender_program is None:
-                    return Result(False, f'BlenderVenv cannot be set before BlenderProgram for Profile {self.name}')
+                    result = Result(False, f'BlenderVenv cannot be set before BlenderProgram for Profile {self.name}')
                 else:
                     if component.blender_program == self.blender_program:
                         self.blender_venv = component
-                        return Result(True, f'BlenderVenv {component.name} added to Profile {self.name}')
+                        result = Result(True, f'BlenderVenv {component.name} added to Profile {self.name}')
                     else:
-                        return Result(False, f'BlenderVenv {component.name} was created from a different '
+                        result = Result(False, f'BlenderVenv {component.name} was created from a different '
                                              f'BlenderProgram than the one in Profile {self.name}')
             else:
-                return Result(False, f'BlenderVenv {component.name} cannot be added to Profile {self.name}')
+                result = Result(False, f'BlenderVenv {component.name} cannot be added to Profile {self.name}')
         else:
-            return Result(False, f'Component type {component.__class__.__name__} cannot be added to Profile '
+            result = Result(False, f'Component type {component.__class__.__name__} cannot be added to Profile '
                                  f'{self.name}')
+        return result
+
+    @Dillable.save_dill
+    def clear_component(self, component_class) -> Result:
+        """
+        Clear a component from this Profile.
+
+        :param component_class: a Component class object, must be one of the following: BlenderProgram, BlenderSetup,
+                                BlenderVenv
+
+        :return:  a Result object indicating if the clearing is successful
+        """
+        if component_class == BlenderProgram:
+            self.blender_program = None
+            return Result(True, f'BlenderProgram cleared from Profile {self.name}')
+        elif component_class == BlenderSetup:
+            self.blender_setup = None
+            return Result(True, f'BlenderSetup cleared from Profile {self.name}')
+        elif component_class == BlenderVenv:
+            self.blender_venv = None
+            return Result(True, f'BlenderVenv cleared from Profile {self.name}')
+        else:
+            return Result(False, f'Component type {component_class.__name__} cannot be cleared from Profile '
+                                   f'{self.name}')
 
     def launch_blender(self, launch_config: BlenderLaunchConfig = BlenderLaunchConfig()) -> Result:
+        """
+        Launch Blender GUI with the specified configuration.
+
+        :param launch_config: a BlenderLaunchConfig object specifying the configuration for launching Blender
+
+        :return: a Result object indicating if the launching is successful
+        """
         if self.blender_program is not None:
             # Set BlenderSetup's config and scripts as environment variables for Blender to use
             if self.blender_setup is not None and launch_config.if_use_blender_setup_config:
@@ -123,6 +176,13 @@ class Profile(Component):
             return Result(False, f'BlenderProgram is not set for Profile {self.name}')
 
     def configure_venv(self, launch_config: VenvLaunchConfig = VenvLaunchConfig()) -> Result:
+        """
+        Configure the Blender venv associated with this Profile.
+
+        :param launch_config: a VenvLaunchConfig object specifying the configuration for configuring the venv
+
+        :return: a Result object indicating if the configuration is successful
+        """
         if self.blender_program is not None:
             if self.blender_venv is not None:
                 # Always remove the pth file first
@@ -144,6 +204,13 @@ class Profile(Component):
             return Result(False, f'Blender program is not set for Profile {self.name}')
 
     def launch_venv(self, launch_config: VenvLaunchConfig = VenvLaunchConfig()) -> Result:
+        """
+        Launch the Blender venv associated with this Profile with the specified configuration.
+
+        :param launch_config: a VenvLaunchConfig object specifying the configuration for launching the venv
+
+        :return: a Result object indicating if the launching is successful
+        """
         result = self.configure_venv(launch_config)
         if not result:
             return result

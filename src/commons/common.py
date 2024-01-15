@@ -190,36 +190,44 @@ class Dillable:
         self.saved_app_version: packaging.version.Version = Config.app_version
         self.uuid = uuid.uuid4().hex
         self.dill_extension = '.dil'  # This will be overriden by subclasses
-        self.dill_save_path = None
+        self.dill_save_dir = None  # This will be set by the repo class
+        self.dill_save_path = None  # This is the last saved dill file path
 
-    def save_to_disk(self, save_dir: str or Path) -> Result:
+    def save_to_disk(self) -> Result:
         """
         Save the object to disk as a dill file. The save file is named after the hash of the object with a specific
         extension depending on the subclass. All subclasses should have the dill_extension attribute overridden by
         the Depository class during initialization. All subclasses should have __hash__ implemented.
 
-        :param save_dir: the directory to save the dill file
+        :return: a Result object
+        """
+        if self.dill_save_dir is not None:
+            self.dill_save_path = Path(self.dill_save_dir) / f'{str(hash(self)).zfill(16)}{self.dill_extension}'
+            with open(self.dill_save_path, 'wb') as pickle_file:
+                self.saved_app_version = Config.app_version
+                try:
+                    dill.dump(self, pickle_file)
+                    return Result(True, f'{self.__class__.__name__} saved to {self.dill_save_path}')
+                except Exception as e:
+                    return Result(False, f'Error saving {self.__class__.__name__} to {self.dill_save_path}: {e}')
+        else:
+            return Result(False, f'Error saving {self.__class__.__name__} to {self.dill_save_path}: save_dir not set')
+
+    def save_dill(fn) -> Result:
+        """
+        A decorator that saves the object to disk as a dill file after the function call.
 
         :return: a Result object
         """
-        self.dill_save_path = Path(save_dir) / f'{str(hash(self)).zfill(16)}{self.dill_extension}'
-        with open(self.dill_save_path, 'wb') as pickle_file:
-            self.saved_app_version = Config.app_version
-            try:
-                dill.dump(self, pickle_file)
-                return Result(True, f'{self.__class__.__name__} saved to {self.dill_save_path}')
-            except Exception as e:
-                return Result(False, f'Error saving {self.__class__.__name__} to {self.dill_save_path}: {e}')
-
-    def resave_to_disk(self) -> Result:
-        """
-        Resave the object to disk as a dill file if the dill_save_path is set.
-
-        :return: a Result object
-        """
-        if self.dill_save_path is not None:
-            return self.save_to_disk(self.dill_save_path.parent)
-        return Result(False, f'Error saving {self} to disk: dill_save_path not set')
+        def wrapper(self, *args, **kwargs):
+            result = fn(self, *args, **kwargs)
+            if result:
+                if self.dill_save_dir is not None:  # Only save if the dill_save_dir is set
+                    save_result = self.save_to_disk()
+                    if not save_result:
+                        return save_result
+                return result
+        return wrapper
 
     @classmethod
     def load_from_disk(cls, file_path: str or Path) -> Result:

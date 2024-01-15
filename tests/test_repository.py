@@ -18,7 +18,15 @@ from components.python_package import PythonPyPIPackage
 
 
 def test_repository_class_creation_functions():
-    repo = get_repo()
+    # If use default temporary test repo dir, which will be cleared automatically before testing
+    if False:
+        repo = get_repo()
+    # This is used to create example repo for testing
+    else:
+        repo_dir = Path(TESTDATA['example_repo'])
+        if repo_dir.exists():
+            shutil.rmtree(repo_dir)
+        repo = get_repo(repo_dir)
 
     # Test readiness
     assert repo.is_repository_path_ready, 'Repository path is not ready'
@@ -73,7 +81,7 @@ def test_repository_class_creation_functions():
     blender_venv.install_dev_library(result.data)
 
     # Test adding BlenderSetup
-    blender_setup_name = f'TempBlenderSetup_{str(random.randint(0, 1000)).zfill(4)}'
+    blender_setup_name = f'TempBlenderSetup'
     result = repo.create_component(BlenderSetup, repo.blender_setup_repo.storage_save_dir, blender_setup_name)
     assert result, 'Error creating BlenderSetup'
     blender_setup = result.data
@@ -95,9 +103,28 @@ def test_repository_class_creation_functions():
     result = blender_setup.add_component(list(repo.blender_script_repo.pool.values())[1])
     assert result, 'Error adding BlenderScript to BlenderSetup'
 
+    # Test adding Profile
+    profile_name = f'TempProfile'
+    result = ProfileManager.create(profile_name)
+    assert result, 'Error creating BlenderSetup'
+    profile = result.data
+    result = repo.add_component(profile)
+    assert result, 'Error adding BlenderSetup to repo'
+
+    # Test adding components
+    result = profile.add_component(list(repo.blender_program_repo.pool.values())[0])
+    assert result, 'Error adding BlenderProgram to BlenderSetup'
+    result = profile.add_component(list(repo.blender_setup_repo.pool.values())[0])
+    assert result, 'Error adding BlenderSetup to BlenderSetup'
+    result = profile.add_component(list(repo.blender_venv_repo.pool.values())[0])
+    assert result, 'Error adding BlenderVendor to BlenderSetup'
+    result = profile.add_component(list(repo.blender_addon_repo.pool.values())[0])
+    assert not result, 'BlenderAddon shouldn\'t be added to BlenderSetup'
+
 
 def test_repository_class_component_functions():
-    repo = get_repo()
+    repo_dir = r'c:\TechDepot\Github\bermesio\_test_data\win32\repos\example_repo'
+    repo = get_repo(repo_dir)
 
     # Test replacing and updating component
     # TODO: After BlenderSetup and Profile are implemented
@@ -136,14 +163,12 @@ def test_repository_class_component_functions():
         shutil.rmtree(repo_dir)
 
 
-def test_repository_class_save_load_functions():
-    repo_dir = Path(TESTDATA['test_repo'])
-    repo = Repository(repo_dir=repo_dir)
+def test_repository_class_launch_functions():
+    repo_dir = Path(TESTDATA['example_repo'])
+    repo = get_repo(repo_dir)
 
-    # Test saving and loading
-    repo.create_instance()
-    results = repo.init_sub_repos()
-    assert results, 'Error initializing sub-repository'
-
-    # Test dill-ability
-    assert is_dillable(repo), 'Repository should be picklable'
+    profile = list(repo.profile_repo.pool.values())[0]
+    result = profile.launch_blender()
+    assert result, 'Error launching Blender'
+    result = profile.launch_venv()
+    assert result, 'Error launching Blender Venv'

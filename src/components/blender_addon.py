@@ -346,6 +346,7 @@ class BlenderZippedAddon(BlenderReleasedAddon):
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
+                self.source_path = self.data_path
                 self.is_stored_in_repo = True
                 self.repo_rel_path = repo_addon_path.relative_to(Config.repo_dir)
                 self.data_path = repo_addon_path
@@ -417,6 +418,7 @@ class BlenderDirectoryAddon(BlenderReleasedAddon):
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
+                self.source_path = self.data_path
                 self.is_stored_in_repo = True
                 self.repo_rel_path = repo_addon_path.relative_to(Config.repo_dir)
                 self.data_path = repo_addon_path
@@ -455,6 +457,7 @@ class BlenderSingleFileAddon(BlenderReleasedAddon):
             except OSError as e:
                 return Result(False, f'Error copying addon to {repo_addon_path}: {e}')
             if repo_addon_path.exists():
+                self.source_path = self.data_path
                 self.is_stored_in_repo = True
                 self.repo_rel_path = repo_addon_path.relative_to(Config.repo_dir)
                 self.data_path = repo_addon_path

@@ -73,6 +73,7 @@ class Component(Dillable):
                     pass
                 # If successfully stored in the repo, update related attributes.
                 if repo_path.exists():
+                    self.source_path = self.data_path
                     self.data_path = repo_path
                     self.repo_rel_path = self.data_path.relative_to(Config.repo_dir)
                     self.is_stored_in_repo = True  # Flag it is already stored in the repo

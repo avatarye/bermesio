@@ -5,7 +5,7 @@ import shutil
 
 import virtualenv
 
-from commons.common import Result, blog, SharedFunctions as SF
+from commons.common import Result, blog, Dillable, SharedFunctions as SF
 from commons.command import run_command
 from components.blender_program import BlenderProgram, BlenderProgramManager
 from components.component import Component
@@ -173,6 +173,7 @@ class BlenderVenv(Component):
             # command = f'source {activate_script} && pip install {subject.get_installation_str()}'
         return run_command(command)
 
+    @Dillable.save_dill
     def install_bpy_package(self, force: bool = False) -> Result:
         """
         Install the bpy package in a dedicated path in the virtual environment. This is to avoid the bpy package being
@@ -201,6 +202,7 @@ class BlenderVenv(Component):
         else:
             return Result(True, 'bpy package already installed')
 
+    @Dillable.save_dill
     def install_site_package(self, subject: PythonPyPIPackage or PythonPackageSet) -> Result:
         """
         Install the given PythonPyPIPackage or PythonPackageSet object in the virtual environment's site-packages dir.
@@ -225,6 +227,7 @@ class BlenderVenv(Component):
                 return Result(False, f'Error installing package(s) {error_package_names}')
         return result
 
+    @Dillable.save_dill
     def install_dev_library(self, subject: PythonDevLibrary) -> Result:
         """
         Install the given PythonDevLibrary object in the virtual environment's dev library dir.
@@ -356,6 +359,9 @@ class BlenderVenv(Component):
 
         :return: True if the Blender virtual environment is valid, otherwise False
         """
+        # TODO: Add a verification on the hard-coded original Python interpreter path in the activation scripts to guard
+        #       against the case where the repo moved to another location resulting in the associated BlenderProgram's
+        #       Python cannot be found.
         return super().verify() and self.blender_program.verify()
 
     def __str__(self):

@@ -85,6 +85,7 @@ class Repository:
         return cls._instance
 
     def __init__(self, repo_dir: str or Path =None, user_query_fn=None):
+        repo_dir = Path(repo_dir)
         self.init_params = {'repo_dir': repo_dir, 'user_query_fn': user_query_fn}
 
     def _is_repository_path_ready(self, repo_dir: Path) -> bool:
@@ -207,6 +208,8 @@ class Repository:
                 if not result:
                     return Result(False, f'The Blender venv appears to be not created from a Blender program in the '
                                          f'repo.')
+            # Set the component's dill save dir to the repo's component save dir
+            component.dill_save_dir = self.component_save_dir
             return sub_repo.add(component, query_user=query_user)
         return Result(False, f'No sub repo found for {component}')
 
@@ -362,8 +365,7 @@ class SubRepository:
     def save_components_to_disk(self) -> Result:
 
         if self.component_save_dir:
-            return ResultList([component.save_to_disk(self.component_save_dir)
-                               for component in self.pool.values()]).to_result()
+            return ResultList([component.save_to_disk() for component in self.pool.values()]).to_result()
         else:
             return Result(False, f'No component save directory found for {self.name}')
 
@@ -399,8 +401,8 @@ class SubRepository:
                 # Add the component to the pool after storing it in the repo, for this will change its data path and
                 # hash value
                 self.pool[hash(component)] = component
-                # Save the component to disk
-                result = component.save_to_disk(self.component_save_dir)
+                # Save the component to the repo's component save dir immediately after adding it to the pool
+                result = component.save_to_disk()
                 if not result:
                     return result
                 return Result(True, f'{component} added to the repo', component)
