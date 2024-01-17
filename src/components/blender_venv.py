@@ -5,10 +5,10 @@ import shutil
 
 import virtualenv
 
-from commons.common import Result, blog, Dillable, SharedFunctions as SF
+from commons.common import Result, blog, SharedFunctions as SF
 from commons.command import run_command
 from components.blender_program import BlenderProgram, BlenderProgramManager
-from components.component import Component
+from components.component import Component, Dillable
 from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonPackageSet
 from components.python_dev_library import PythonDevLibrary
 from config import Config

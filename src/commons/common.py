@@ -1,15 +1,10 @@
 from dataclasses import dataclass
-import hashlib
 import logging
 import os
 from pathlib import Path
 import re
 import shutil
 import sys
-import uuid
-
-import dill
-import packaging.version
 
 from config import Config
 
@@ -173,102 +168,6 @@ class Logger:
 
 
 blog = Logger(f'{Config.app_name}', level=logging.DEBUG, include_time=True).log
-
-# endregion
-
-
-# region Dillable
-
-class Dillable:
-    """
-    A base class that has dill related functions.
-    """
-
-    dill_extension = '.dil'
-
-    def __init__(self):
-        self.saved_app_version: packaging.version.Version = Config.app_version
-        self.uuid = uuid.uuid4().hex
-        self.dill_extension = '.dil'  # This will be overriden by subclasses
-        self.dill_save_dir = None  # This will be set by the repo class
-        self.dill_save_path = None  # This is the last saved dill file path
-
-    def save_to_disk(self) -> Result:
-        """
-        Save the object to disk as a dill file. The save file is named after the hash of the object with a specific
-        extension depending on the subclass. All subclasses should have the dill_extension attribute overridden by
-        the Depository class during initialization. All subclasses should have __hash__ implemented.
-
-        :return: a Result object
-        """
-        if self.dill_save_dir is not None:
-            self.dill_save_path = Path(self.dill_save_dir) / f'{str(hash(self)).zfill(16)}{self.dill_extension}'
-            with open(self.dill_save_path, 'wb') as pickle_file:
-                self.saved_app_version = Config.app_version
-                try:
-                    dill.dump(self, pickle_file)
-                    return Result(True, f'{self.__class__.__name__} saved to {self.dill_save_path}')
-                except Exception as e:
-                    return Result(False, f'Error saving {self.__class__.__name__} to {self.dill_save_path}: {e}')
-        else:
-            return Result(False, f'Error saving {self.__class__.__name__} to {self.dill_save_path}: save_dir not set')
-
-    def save_dill(fn) -> Result:
-        """
-        A decorator that saves the object to disk as a dill file after the function call.
-
-        :return: a Result object
-        """
-        def wrapper(self, *args, **kwargs):
-            result = fn(self, *args, **kwargs)
-            if result:
-                if self.dill_save_dir is not None:  # Only save if the dill_save_dir is set
-                    save_result = self.save_to_disk()
-                    if not save_result:
-                        return save_result
-                return result
-        return wrapper
-
-    @classmethod
-    def load_from_disk(cls, file_path: str or Path) -> Result:
-        """
-        Load the dill file from disk, run its verification function and return the loaded instance.
-
-        :param file_path: the path of the dill file
-
-        :return: a Result object, the data field contains the loaded instance if successful
-        """
-        file_path = Path(file_path)
-        if file_path.exists() and file_path.is_file():
-            with open(file_path, 'rb') as pickle_file:
-                loaded_instance = dill.load(pickle_file)
-            # Compare version
-            if loaded_instance.saved_app_version != Config.app_version:
-                blog(3, f'Dill file saved with a different version {loaded_instance.saved_app_version}.')
-            # Verify the loaded instance
-            if loaded_instance.verify():
-                loaded_instance.is_verified = True
-                return Result(True, f'{loaded_instance.__class__.__name__} restored from {file_path}', loaded_instance)
-            else:
-                loaded_instance.is_verified = False
-                return Result(True, f'Verification failed for {loaded_instance.__class__.__name__} restored from '
-                                    f'{file_path}', loaded_instance)  # Still return the loaded instance
-        else:
-            return Result(False, f'Dill file not found: {file_path}', file_path)
-
-    def remove_from_disk(self):
-        """Remove the dill file from disk."""
-        if self.dill_save_path and self.dill_save_path.exists():
-            SharedFunctions.remove_target_path(self.dill_save_path)
-
-    def verify(self) -> bool:
-        """Verify the object, mainly called after restoration. Actual implementation is in the subclass."""
-        raise NotImplementedError
-
-    def compare_uuid(self, other: 'Dillable') -> bool:
-        """Compare the UUID of the object with another Dillable object."""
-        return self.uuid == other.uuid
-
 
 # endregion
 

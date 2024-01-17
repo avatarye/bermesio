@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
 
-from commons.common import Result, ResultList, Dillable, SharedFunctions as SF
+from commons.common import Result, ResultList, SharedFunctions as SF
 from components.blender_addon import (BlenderZippedAddon, BlenderDirectoryAddon, BlenderSingleFileAddon,
                                       BlenderDevDirectoryAddon, BlenderDevSingleFileAddon)
 from components.blender_script import (BlenderRegularScript, BlenderStartupScript, BlenderDevRegularScript,
                                        BlenderDevStartupScript)
-from components.component import Component
+from components.component import Component, Dillable
 from config import Config
 
 

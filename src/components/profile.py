@@ -2,12 +2,12 @@ from dataclasses import dataclass
 import os
 import sys
 
-from commons.common import Result, Dillable, SharedFunctions as SF
+from commons.common import Result, SharedFunctions as SF
 from commons.command import popen_command
 from components.blender_program import BlenderProgram
 from components.blender_setup import BlenderSetup
 from components.blender_venv import BlenderVenv
-from components.component import Component
+from components.component import Component, Dillable
 from config import Config
 
 
