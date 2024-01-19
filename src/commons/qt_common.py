@@ -1,5 +1,5 @@
-from PyQt6.QtCore import QFile, QIODevice, QSettings
-from PyQt6.QtGui import QFontDatabase
+from PyQt6.QtCore import Qt, QFile, QIODevice, QSettings, QSize
+from PyQt6.QtGui import QFontDatabase, QFont, QColor, QPixmap, QPainter, QIcon
 
 from commons.common import blog
 from config import Config
@@ -36,6 +36,20 @@ def get_app_icon_path(size: int = 64):
     assert icon_path.exists(), f"Icon file not found at {icon_path}"
     return icon_path
 
+
+def get_glyph_icon(char: str, font: str, color: str, size: int = 16):
+    """Render a glyph of give font with the color and size as a QIcon."""
+    font = QFont(font)
+    font.setPixelSize(size)
+    color = QColor(color)
+    pixmap = QPixmap(QSize(size, size))
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setPen(color)  # Set the pen color to the specified color
+    painter.setFont(font)
+    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, char)
+    painter.end()
+    return QIcon(pixmap)
 
 
 class BSettings(QSettings):
