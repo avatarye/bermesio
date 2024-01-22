@@ -16,37 +16,16 @@ QWidget#BaseWindowCentralWidget {
     border: 1px solid #75715e;
 }
 
-QTabWidget::pane { /* The tab widget frame */
-    border: 1px solid #75715E;
-}
+/*QTableWidget {*/
+/*    background: transparent;*/
+/*    gridline-color: transparent;*/
+/*}*/
 
-QTabBar::tab {
-    background: #272822;
-    border: 1px solid #75715E;
-    border-bottom-color: #272822; /* same as the pane color */
-    border-top-left-radius: 1px;
-    border-top-right-radius: 1px;
-    min-width: 8ex;
-    padding-left: 6px;
-    padding-right: 6px;
-}
-
-QTabBar::tab:selected, QTabBar::tab:hover {
-    background: #F92672;
-}
-
-QTabBar::tab:selected {
-    border: 0px;
-    background: #F92672;
-    color: #F8F8F2;
-    font-family: "JetBrainsMono NFP", sans-serif;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-QTabBar::tab:!selected {
-    margin-top: 2px; /* make non-selected tabs look smaller */
-    font-family: "JetBrainsMono NFP", sans-serif;
-    font-size: 14px;
-    font-weight: bold;
-}
+/*QToolTip {*/
+/*    color: #F8F8F2;*/
+/*    background-color: #272822;*/
+/*    border: #75715E solid 1px;*/
+/*    font-family: "Open Sans", sans-serif;*/
+/*    font-size: 13px;*/
+/*    padding: 1px;*/
+/*}*/

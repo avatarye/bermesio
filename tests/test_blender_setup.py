@@ -29,22 +29,22 @@ def test_blender_setup_class():
     # Test adding and removing components
     result = blender_setup.add_component(list(repo.blender_program_repo.pool.values())[0])
     assert not result, 'BlenderProgram shouldn\'t be added to BlenderSetup'
-    result = blender_setup.add_component(list(repo.blender_addon_repo.pool.values())[0])
+    result = blender_setup.add_component(list(repo.blender_released_addon_repo.pool.values())[0])
     assert result, 'Error adding BlenderAddon to BlenderSetup'
-    result = blender_setup.add_component(list(repo.blender_addon_repo.pool.values())[1])
+    result = blender_setup.add_component(list(repo.blender_released_addon_repo.pool.values())[1])
     assert result, 'Error adding BlenderAddon to BlenderSetup'
     result = blender_setup.add_component(list(repo.blender_dev_addon_repo.pool.values())[0])
     assert result, 'Error adding BlenderDevAddon to BlenderSetup'
     result = blender_setup.add_component(list(repo.blender_dev_addon_repo.pool.values())[1])
     assert result, 'Error adding BlenderDevAddon to BlenderSetup'
 
-    result = blender_setup.add_component(list(repo.blender_script_repo.pool.values())[0])
+    result = blender_setup.add_component(list(repo.blender_released_script_repo.pool.values())[0])
     assert result, 'Error adding BlenderScript to BlenderSetup'
-    result = blender_setup.add_component(list(repo.blender_script_repo.pool.values())[1])
+    result = blender_setup.add_component(list(repo.blender_released_script_repo.pool.values())[1])
     assert result, 'Error adding BlenderScript to BlenderSetup'
-    result = blender_setup.remove_component(list(repo.blender_script_repo.pool.values())[0])
+    result = blender_setup.remove_component(list(repo.blender_released_script_repo.pool.values())[0])
     assert result, 'Error removing BlenderScript to BlenderSetup'
-    result = blender_setup.remove_component(list(repo.blender_script_repo.pool.values())[1])
+    result = blender_setup.remove_component(list(repo.blender_released_script_repo.pool.values())[1])
     assert result, 'Error removing BlenderScript to BlenderSetup'
 
     result = blender_setup.add_component(list(repo.blender_dev_script_repo.pool.values())[0])

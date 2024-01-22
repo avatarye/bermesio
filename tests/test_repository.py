@@ -56,7 +56,7 @@ def test_repository_class_creation_functions():
     assert not result, 'Error detecting existing BlenderAddon'
     result = repo.create_component(BlenderSingleFileAddon, TESTDATA['blender_addon|single_file|path'])
     assert result, 'Error creating BlenderSingleFileAddon'
-    assert len(repo.blender_addon_repo.pool) == 2, 'Error creating BlenderSingleFileAddon'
+    assert len(repo.blender_released_addon_repo.pool) == 2, 'Error creating BlenderSingleFileAddon'
     result = repo.create_component(BlenderDevSingleFileAddon, TESTDATA['blender_dev_addon|single_file|path'])
     assert result, 'Error creating BlenderDevSingleFileAddon'
     result = repo.create_component(BlenderDevDirectoryAddon, TESTDATA['blender_dev_addon|dir|path'])
@@ -67,7 +67,7 @@ def test_repository_class_creation_functions():
     assert result, 'Error creating BlenderStartupScript'
     result = repo.create_component(BlenderRegularScript, Path(TESTDATA['blender_script|regular|0']), 'regular')
     assert result, 'Error adding BlenderRegularScript'
-    assert len(repo.blender_script_repo.pool) == 2, 'Error adding BlenderRegularScript'
+    assert len(repo.blender_released_script_repo.pool) == 2, 'Error adding BlenderRegularScript'
     result = repo.create_component(BlenderDevStartupScript, Path(TESTDATA['blender_dev_script|startup|0']), 'startup')
     assert result, 'Error creating BlenderDevStartupScript'
     result = repo.create_component(BlenderDevRegularScript, Path(TESTDATA['blender_dev_script|regular|0']), 'regular')
@@ -77,7 +77,7 @@ def test_repository_class_creation_functions():
     result = repo.create_component(PythonDevLibrary, Path(TESTDATA['python_dev_library|0|path']),
                                    name=TESTDATA['python_dev_library|0|library_name'])
     assert result, 'Error creating PythonDevLibrary'
-    assert len(repo.dev_library_repo.pool) == 1, 'Error creating PythonDevLibrary'
+    assert len(repo.python_dev_library_repo.pool) == 1, 'Error creating PythonDevLibrary'
     blender_venv.install_dev_library(result.data)
 
     # Test adding BlenderSetup
@@ -90,17 +90,17 @@ def test_repository_class_creation_functions():
     assert result and blender_config_path.exists(), 'Error adding Blender config'
     result = blender_setup.add_component(list(repo.blender_program_repo.pool.values())[0])
     assert not result, 'BlenderProgram shouldn\'t be added to BlenderSetup'
-    result = blender_setup.add_component(list(repo.blender_addon_repo.pool.values())[0])
+    result = blender_setup.add_component(list(repo.blender_released_addon_repo.pool.values())[0])
     assert result, 'Error adding BlenderAddon to BlenderSetup'
-    result = blender_setup.add_component(list(repo.blender_addon_repo.pool.values())[1])
+    result = blender_setup.add_component(list(repo.blender_released_addon_repo.pool.values())[1])
     assert result, 'Error adding BlenderAddon to BlenderSetup'
     result = blender_setup.add_component(list(repo.blender_dev_addon_repo.pool.values())[0])
     assert result, 'Error adding BlenderDevAddon to BlenderSetup'
     result = blender_setup.add_component(list(repo.blender_dev_addon_repo.pool.values())[1])
     assert result, 'Error adding BlenderDevAddon to BlenderSetup'
-    result = blender_setup.add_component(list(repo.blender_script_repo.pool.values())[0])
+    result = blender_setup.add_component(list(repo.blender_released_script_repo.pool.values())[0])
     assert result, 'Error adding BlenderScript to BlenderSetup'
-    result = blender_setup.add_component(list(repo.blender_script_repo.pool.values())[1])
+    result = blender_setup.add_component(list(repo.blender_released_script_repo.pool.values())[1])
     assert result, 'Error adding BlenderScript to BlenderSetup'
 
     # Test adding Profile
@@ -118,7 +118,7 @@ def test_repository_class_creation_functions():
     assert result, 'Error adding BlenderSetup to BlenderSetup'
     result = profile.add_component(list(repo.blender_venv_repo.pool.values())[0])
     assert result, 'Error adding BlenderVendor to BlenderSetup'
-    result = profile.add_component(list(repo.blender_addon_repo.pool.values())[0])
+    result = profile.add_component(list(repo.blender_released_addon_repo.pool.values())[0])
     assert not result, 'BlenderAddon shouldn\'t be added to BlenderSetup'
 
 
@@ -145,16 +145,16 @@ def test_repository_class_component_functions():
     result = repo.remove_component(zipped_addon)
     assert not result, 'Addon has been updated with new_addon, shouldn\' exist for removal'
     result = repo.remove_component(new_addon)
-    assert new_addon.uuid not in repo.blender_addon_repo.pool, 'Error removing BlenderAddon'
+    assert new_addon.uuid not in repo.blender_released_addon_repo.pool, 'Error removing BlenderAddon'
 
     # Test loading component from disk
     # TODO: After BlenderSetup and Profile are implemented
     Repository._instance, Repository._is_initialized = None, False  # Reset the singleton
     repo = Repository(repo_dir=repo_dir)
-    assert len(repo.blender_addon_repo.pool) == 1, 'Error loading BlenderAddon from disk'
+    assert len(repo.blender_released_addon_repo.pool) == 1, 'Error loading BlenderAddon from disk'
     assert len(repo.blender_program_repo.pool) == 1, 'Error loading BlenderAddon from disk'
     assert len(repo.blender_venv_repo.pool) == 1, 'Error loading BlenderAddon from disk'
-    assert len(repo.blender_script_repo.pool) == 2, 'Error loading BlenderAddon from disk'
+    assert len(repo.blender_released_script_repo.pool) == 2, 'Error loading BlenderAddon from disk'
 
     # Test dill-ability
     assert is_dillable(repo), 'Repository should be picklable'

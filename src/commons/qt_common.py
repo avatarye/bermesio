@@ -1,5 +1,6 @@
 from PyQt6.QtCore import Qt, QFile, QIODevice, QSettings, QSize
 from PyQt6.QtGui import QFontDatabase, QFont, QColor, QPixmap, QPainter, QIcon
+from PyQt6.QtSvg import QSvgRenderer
 
 from commons.common import blog
 from config import Config
@@ -52,8 +53,27 @@ def get_glyph_icon(char: str, font: str, color: str, size: int = 16):
     return QIcon(pixmap)
 
 
+def get_blender_logo(width: int = 64, format: str = 'pixmap'):
+    blender_logo_path = Config.root_dir / Config.resources_paths['blender_logo']
+    svg_renderer = QSvgRenderer(str(blender_logo_path))
+    if format == 'pixmap':
+        pixmap = QPixmap(width, int(width / 1.22))
+        pixmap.fill(Qt.GlobalColor.transparent)
+        svg_renderer.render(QPainter(pixmap))
+        return pixmap
+    elif format == 'svg':
+        svg_renderer.setAspectRatioMode(Qt.AspectRatioMode.KeepAspectRatio)
+        return svg_renderer
+    else:
+        raise ValueError(f"Unsupported format {format}")
+
+
 class BSettings(QSettings):
-    """A singleton subclass of QSettings that supports boolean values."""
+    """
+    A singleton subclass of QSettings that supports boolean values. It takes one additional argument, which is the
+    name of the widget, which usually is the window called the settings. The additional argument is used to create
+    a child level of setting hierarchy, such as a subdirectory in Windows Registry.
+    """
 
     _instance = None
     _is_initialized = False
@@ -77,4 +97,3 @@ class BSettings(QSettings):
     def get_value(self, subdir, key, default=None):
         key = f"{subdir}/{key}"
         return super().value(key, default)
-

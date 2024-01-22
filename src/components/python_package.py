@@ -273,7 +273,7 @@ class PythonPackageSet:
         while all_packages:
             package = all_packages.pop()
             if package.name in added_package_set.package_dict:
-                if package.version > added_package_set.package_dict[package.name].version:
+                if package.label_type > added_package_set.package_dict[package.name].label_type:
                     added_package_set.package_dict[package.name] = package
             else:
                 added_package_set.package_dict[package.name] = package
@@ -294,7 +294,7 @@ class PythonPackageSet:
                 subtracted_package_set.package_dict[package_name] = package
             else:
                 # Same package but higher version will be preserved
-                if package.version > other.package_dict[package_name].version:
+                if package.label_type > other.package_dict[package_name].label_type:
                     subtracted_package_set.package_dict[package_name] = self.package_dict[package_name]
         return subtracted_package_set
 

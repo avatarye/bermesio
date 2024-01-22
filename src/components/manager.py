@@ -35,7 +35,7 @@ class ObjectPool:
         :return: the key for the object pool
         """
         obj_args_str = ','.join([str(arg) for arg in obj_args]).lower()
-        obj_kwargs_str = ','.join([f'{key}={value}' for key, value in obj_kwargs.items()]).lower()
+        obj_kwargs_str = ','.join([f'{key}={value}' for key, value in obj_kwargs.component_items()]).lower()
         return f'{obj_cls.__name__}|{obj_args_str}|{obj_kwargs_str}'
 
     @classmethod

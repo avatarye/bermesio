@@ -225,7 +225,7 @@ class Component(Dillable):
         :return: a hash value of the data path
         """
         # If the data is stored in the repo, use the repo relative path to get the hash. This is to enable establishing
-        # inter-dependency between components in a repo that has been moved to another location.
+        # interdependency between components in a repo that has been moved to another location.
         if self.is_stored_in_repo and self.repo_rel_path is not None:
             return self.get_stable_hash(self.repo_rel_path.as_posix())
         return self.get_stable_hash(self.data_path.as_posix())

@@ -34,7 +34,7 @@ def test_blender_released_addon_classes():
         assert addon.description == test_addon_json['description'], \
             'BlenderAddon description does not match'
         # Test copying addon
-        for addon in repo.blender_addon_repo.pool.values():
+        for addon in repo.blender_released_addon_repo.pool.values():
             assert addon.data_path.exists(), 'BlenderAddon data path not copied to repo'
         with ZipFile(addon.data_path, 'r') as z:
             init_files = [f for f in z.namelist() if f.endswith('__init__.py')]
@@ -45,7 +45,7 @@ def test_blender_released_addon_classes():
         deployed_addon_path = deploy_dir / addon.name
         assert deployed_addon_path.exists(), 'Zipped addon should be deployed to deploy dir'
         repo.remove_component(addon)
-        assert len(repo.blender_addon_repo.pool) == 0, 'BlenderAddon should be removed from repo'
+        assert len(repo.blender_released_addon_repo.pool) == 0, 'BlenderAddon should be removed from repo'
         if deployed_addon_path.is_dir():
             shutil.rmtree(deployed_addon_path)
         else:
@@ -73,7 +73,7 @@ def test_blender_released_addon_classes():
         assert addon.description == test_addon_json['description'], \
             'BlenderAddon description does not match'
         # Test copying addon
-        for addon in repo.blender_addon_repo.pool.values():
+        for addon in repo.blender_released_addon_repo.pool.values():
             assert addon.data_path.exists(), 'BlenderAddon data path not copied to repo'
         with ZipFile(addon.data_path, 'r') as z:
             assert len(z.namelist()) == 1, 'Single-file addon should have only one file'
@@ -86,7 +86,7 @@ def test_blender_released_addon_classes():
         deployed_addon_path = deploy_dir / addon_py_file.name
         assert deployed_addon_path.exists(), 'Zipped addon should be deployed to deploy dir'
         repo.remove_component(addon)
-        assert len(repo.blender_addon_repo.pool) == 0, 'BlenderAddon should be removed from repo'
+        assert len(repo.blender_released_addon_repo.pool) == 0, 'BlenderAddon should be removed from repo'
         if deployed_addon_path.is_dir():
             shutil.rmtree(deployed_addon_path)
         else:

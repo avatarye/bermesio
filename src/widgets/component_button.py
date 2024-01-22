@@ -2,17 +2,25 @@ from PyQt6.QtWidgets import QPushButton
 from PyQt6.QtGui import QPainter, QFont, QColor, QPen, QFontMetrics
 from PyQt6.QtCore import Qt, QRect
 
-from commons.colors import BColors
+from commons.color import BColors
+from config import Config
 
 
 class ComponentButton(QPushButton):
+    """
+    A subclass of QPushButton that is used as a component button in the main window. This is mostly used for the custom
+    styling, including using a glyph icon font with text in another font, check state effect and hover effects.
+    """
 
-    def __init__(self, text, icon_char, color, parent=None):
-        super().__init__(text, parent)
+    def __init__(self, setting_dict, parent=None):
+        self.text = setting_dict['button_text']
+        self.icon_char = setting_dict['icon_char']
+        self.color = setting_dict['color']
+        super().__init__(self.text, parent)
         self.hover = False
-        self.text, self.icon_char, self.color = text, icon_char, color
-        self.glyph_icon_font = QFont("JetBrainsMono NFP", 12)
-        self.text_font = QFont("Open Sans SemiCondensed", 10)
+        self.setObjectName(f'MainWindowComponentButton{self.text}')
+        self.glyph_icon_font = QFont(Config.font_settings['glyph_icon_font'], 12)
+        self.text_font = QFont(Config.font_settings['button_font'], 10)
         self.text_font.setBold(True)
         self.spacing = 4
         self.padding = 6
@@ -20,6 +28,7 @@ class ComponentButton(QPushButton):
         self.setFixedWidth(self._get_button_width())
 
     def _get_button_width(self) -> int:
+        """Calculate the button width based on the text and icon."""
         glyph_metrics = QFontMetrics(self.glyph_icon_font)
         self.glyph_icon_width = glyph_metrics.horizontalAdvance(self.icon_char)
         text_metrics = QFontMetrics(self.text_font)
@@ -41,7 +50,7 @@ class ComponentButton(QPushButton):
                 painter.setPen(QColor(BColors.background.value))
             else:
                 painter.setPen(QColor(self.color))
-        rect = QRect(self.padding, 2, self.width(), self.height())
+        rect = QRect(self.padding, 2, self.width(), self.height() + 1)
         # Draw glyph
         painter.setFont(self.glyph_icon_font)
         painter.drawText(rect, Qt.AlignmentFlag.AlignLeft, self.icon_char)
@@ -53,7 +62,7 @@ class ComponentButton(QPushButton):
         # Draw border
         border_pen = QPen(QColor(BColors.sub_text.value), 1)
         painter.setPen(border_pen)
-        border_rect = QRect(0, 0, self.width() - 1, self.height() - 1)
+        border_rect = QRect(0, 0, self.width() - 1, self.height())
         painter.drawRect(border_rect)
 
     def enterEvent(self, event):

@@ -14,7 +14,7 @@ class MonokaiColors(Enum):
     cyan = '#66D9EF'
     blue = '#268BD2'
     purple = '#AE81FF'
-    dark_blue = '#265787'
+    dark_blue = '#006AE7'
 
 
 class BColors(Enum):
@@ -31,7 +31,7 @@ class BColors(Enum):
     blender_venv = MonokaiColors.green.value
     blender_dev_addon = MonokaiColors.blue.value
     blender_dev_script = MonokaiColors.dark_blue.value
-    python_local_library = MonokaiColors.cyan.value
+    python_dev_library = MonokaiColors.cyan.value
 
     blender_orange = '#EA7600'
     blender_blue = '#265787'

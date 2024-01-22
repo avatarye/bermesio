@@ -7,6 +7,10 @@ from config import Config
 
 
 class TitleBar(QWidget):
+    """
+    A subclass of QWidget that can be used as a base class for customized title bar for a window. This class mostly
+    handles the mouse events for moving the window.
+    """
 
     def __init__(self, parent_window: QWidget):
         super().__init__()
@@ -41,6 +45,10 @@ class TitleBar(QWidget):
 
 
 class MainWindowTitleBar(TitleBar):
+    """
+    A subclass of TitleBar that is used as the title bar for MainWindow. This class uses customized labels and buttons
+    for the application logo, title, minimize and close buttons.
+    """
 
     def __init__(self, parent_window: QWidget):
         super().__init__(parent_window)
@@ -49,17 +57,17 @@ class MainWindowTitleBar(TitleBar):
     def _setup_gui(self):
         super()._setup_gui()
 
-        self.lable_logo = QLabel()
-        self.lable_logo.setFixedSize(32, 32)
-        self.lable_logo.setPixmap(QPixmap(str(get_app_icon_path(32))))
-        self.lable_app_title = QLabel(f'{Config.app_name.upper()} - {Config.app_subtitle}')
-        self.lable_app_title.setStyleSheet("""
+        # Define widgets
+        self.label_logo = QLabel()
+        self.label_logo.setFixedSize(32, 32)
+        self.label_logo.setPixmap(QPixmap(str(get_app_icon_path(32))))
+        self.label_app_title = QLabel(f'{Config.app_name.upper()} - {Config.app_subtitle}')
+        self.label_app_title.setStyleSheet("""
             font-family: "JetBrainsMono NFP", sans-serif;
             color: #F8F8F2;
             font-size: 12pt;
             font-weight: normal;
         """)
-
         button_stylesheet = """
         QPushButton {
             font-family: "JetBrainsMono NFP", sans-serif;
@@ -71,7 +79,6 @@ class MainWindowTitleBar(TitleBar):
         QPushButton:hover { color: #F8F8F2; }
         QPushButton:pressed { color: #75715E; }
         """
-
         close_button_stylesheet = """
         QPushButton {
             font-family: "JetBrainsMono NFP", sans-serif;
@@ -83,7 +90,6 @@ class MainWindowTitleBar(TitleBar):
         QPushButton:hover { color: #F92672; }
         QPushButton:pressed { color: #75715E; }
         """
-
         self.pushbutton_document = QPushButton('\U0000f02d')
         self.pushbutton_document.setFixedSize(32, 32)
         self.pushbutton_document.setStyleSheet(button_stylesheet)
@@ -97,8 +103,9 @@ class MainWindowTitleBar(TitleBar):
         self.pushbutton_close.setFixedSize(32, 32)
         self.pushbutton_close.setStyleSheet(close_button_stylesheet)
 
-        self.layout.addWidget(self.lable_logo)
-        self.layout.addWidget(self.lable_app_title)
+        # Define layout
+        self.layout.addWidget(self.label_logo)
+        self.layout.addWidget(self.label_app_title)
         self.layout.addStretch()
         self.layout.addWidget(self.pushbutton_document)
         self.layout.addWidget(self.pushbutton_preferences)

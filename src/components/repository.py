@@ -34,13 +34,13 @@ class Repository:
             'manager': BlenderVenvManager,
             'creation_fn': BlenderVenvManager.create,
         },
-        'blender_addon_repo': {
+        'blender_released_addon_repo': {
             'storage_dir': 'Addons',
             'class': BlenderReleasedAddon,
             'manager': BlenderAddonManager,
             'creation_fn': BlenderAddonManager.create_blender_addon,
         },
-        'blender_script_repo': {
+        'blender_released_script_repo': {
             'storage_dir': 'Scripts',
             'class': BlenderReleasedScript,
             'manager': BlenderScriptManager,
@@ -58,7 +58,7 @@ class Repository:
             'manager': BlenderScriptManager,
             'creation_fn': BlenderScriptManager.create_blender_dev_script,
         },
-        'dev_library_repo': {
+        'python_dev_library_repo': {
             'storage_dir': None,
             'class': PythonDevLibrary,
             'manager': PythonDevLibraryManager,

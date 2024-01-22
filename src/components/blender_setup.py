@@ -154,7 +154,7 @@ class BlenderSetup(Component):
             if len(component_dict) == 0:
                 return Result(True)
             results = []
-            for hash_, rel_path in component_dict.items():
+            for hash_, rel_path in component_dict.component_items():
                 if not (self.data_path / rel_path).exists():
                     results.append(Result(False, f'Component {rel_path} not found'))
             return ResultList(results).to_result()

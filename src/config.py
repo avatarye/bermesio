@@ -3,13 +3,12 @@ from pathlib import Path
 import sys
 
 import packaging.version
-from PyQt6.QtCore import QSettings
+
+from commons.color import *
 
 
 class Config:
-    """
-    A singleton class that stores the configuration of the application.
-    """
+    """A static class that stores the configuration of the application and related functions."""
 
     app_name = 'Bermesio'
     app_subtitle = 'Ultimate Blender Manager'
@@ -48,6 +47,79 @@ class Config:
         },
         'banner': 'res/icons/Bermesio_Banner.png',
         'qss': 'res/stylesheets/global_style.qss',
+        'blender_logo': 'res/icons/Blender_Logo.svg',
+    }
+
+    font_settings = {
+        'glyph_icon_font': 'JetBrainsMono NFP',
+        'button_font': 'Open Sans SemiCondensed',
+        'label_font': 'Open Sans SemiCondensed',
+    }
+
+    component_settings = {
+        'Profile': {
+            'name': 'profile',
+            'button_text': 'PROFILES',
+            'color': BColors.profile.value,
+            'icon_char': '\U000f0004',
+            'table_item_size_hint': (200, 200),
+        },
+        'BlenderSetup': {
+            'name': 'blender_setup',
+            'button_text': 'SETUPS',
+            'color': BColors.blender_setup.value,
+            'icon_char': '\U000f01d6',
+            'table_item_size_hint': (200, 200),
+        },
+        'BlenderProgram': {
+            'name': 'blender_program',
+            'button_text': 'BLENDERS',
+            'color': BColors.blender_program.value,
+            'icon_char': '\U000f00ab',
+            'table_item_size_hint': (160, 60),
+        },
+        'BlenderReleasedAddon': {
+            'name': 'blender_release_addon',
+            'button_text': 'ADDONS',
+            'color': BColors.blender_released_addon.value,
+            'icon_char': '\U000f003c',
+            'table_item_size_hint': (200, 80),
+        },
+        'BlenderReleasedScript': {
+            'name': 'blender_release_script',
+            'button_text': 'SCRIPTS',
+            'color': BColors.blender_released_script.value,
+            'icon_char': '\U000f09ee',
+            'table_item_size_hint': (200, 60),
+        },
+        'BlenderVenv': {
+            'name': 'blender_venv',
+            'button_text': 'VENVS',
+            'color': BColors.blender_venv.value,
+            'icon_char': '\U000f0862',
+            'table_item_size_hint': (200, 200),
+        },
+        'BlenderDevAddon': {
+            'name': 'blender_dev_addon',
+            'button_text': 'DEV ADDONS',
+            'color': BColors.blender_dev_addon.value,
+            'icon_char': '\U000f1754',
+            'table_item_size_hint': (200, 80),
+        },
+        'BlenderDevScript': {
+            'name': 'blender_dev_script',
+            'button_text': 'DEV SCRIPTS',
+            'color': BColors.blender_dev_script.value,
+            'icon_char': '\U000f0dc9',
+            'table_item_size_hint': (200, 60),
+        },
+        'PythonDevLibrary': {
+            'name': 'python_dev_library',
+            'button_text': 'DEV LIBS',
+            'color': BColors.python_dev_library.value,
+            'icon_char': '\U0000e606',
+            'table_item_size_hint': (200, 60),
+        },
     }
 
     def __new__(cls, *args, **kwargs):
@@ -73,3 +145,9 @@ class Config:
                 if class_.__name__ in cls.dill_extensions:
                     return cls.dill_extensions[class_.__name__]
         return cls.dill_extensions[component_class_name]
+
+    @staticmethod
+    def get_component_settings(component_name: str) -> dict:
+        """Get the component visual settings of a component."""
+        assert component_name in Config.component_settings, f'Invalid component name: {component_name}'
+        return Config.component_settings[component_name]

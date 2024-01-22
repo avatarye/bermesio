@@ -73,12 +73,12 @@ def test_python_package_set_class():
     # Test arithmetic operations
     union = b4_packages + p12_packages
     assert len(union.package_dict) == 13
-    assert union.package_dict['numpy'].version == Version('1.26.2')
+    assert union.package_dict['numpy'].label_type == Version('1.26.2')
     difference = b4_packages - p12_packages
     assert len(difference.package_dict) == 0
     difference = p12_packages - b4_packages
     assert len(difference.package_dict) == 2
-    assert difference.package_dict['numpy'].version == Version('1.26.2')
+    assert difference.package_dict['numpy'].label_type == Version('1.26.2')
 
     # Test empty PythonPackageSet with add and remove operations
     empty = PythonPackageSet('')

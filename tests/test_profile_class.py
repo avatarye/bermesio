@@ -26,7 +26,7 @@ def test_blender_setup_class():
     assert result, 'Error adding BlenderSetup to BlenderSetup'
     result = profile.add_component(list(repo.blender_venv_repo.pool.values())[0])
     assert result, 'Error adding BlenderVendor to BlenderSetup'
-    result = profile.add_component(list(repo.blender_addon_repo.pool.values())[0])
+    result = profile.add_component(list(repo.blender_released_addon_repo.pool.values())[0])
     assert not result, 'BlenderAddon shouldn\'t be added to BlenderSetup'
 
     # Test launching Blender
