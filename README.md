@@ -8,6 +8,8 @@ Bermesio serves as a central hub for all your Blender addons, scripts, and local
 Bermesio has a modular design that allows users to manage and combine all Blender resources without the need for manual local file management. This solves a major pain point for artists and developers who work with multiple versions of Blender and Python environments.
 
 Bermesio is a standalone GUI application developed with the Qt framework. The initial plan is to support Windows first, with eventual expansion to Linux and MacOS.
+
+The name of Bermesio is derived from combining the elemets from "Blender", "Hermes", and "IO". It is pronounced as /bɜːrˈmɛsioʊ/.
 ## Current Status
 Bermesio is currently in early development stage. It is not ready for release yet. The current version is 0.1.0.
 ## Screenshots
