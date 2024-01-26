@@ -18,6 +18,10 @@ class Dillable:
 
     dill_extension = '.dil'
 
+    @property
+    def status_dict(self):
+        return self._get_status_dict()
+
     def __init__(self):
         self.saved_app_version: packaging.version.Version = Config.app_version
         self.uuid = uuid.uuid4().hex
@@ -93,6 +97,9 @@ class Dillable:
         if self.dill_save_path and self.dill_save_path.exists():
             SharedFunctions.remove_target_path(self.dill_save_path)
 
+    def _get_status_dict(self):
+        return {}
+
     def verify(self) -> bool:
         """Verify the object, mainly called after restoration. Actual implementation is in the subclass."""
         raise NotImplementedError
@@ -106,6 +113,11 @@ class Component(Dillable):
 
     dill_extension = '.dil'  # Extension of the dill file
 
+    is_renamable = False  # If the data of this component can be renamed
+    is_upgradeable = False  # If the data of this component can be upgraded (comparing version and replace)
+    is_duplicable = False  # If the data of this component can be duplicated (copy and paste)
+    is_editable = False # If the data of this component can be edited (open in the editor widget)
+
     def __init__(self, data_path: str or Path):
         super().__init__()
         self.name = 'Unnamed Component'
@@ -114,9 +126,6 @@ class Component(Dillable):
         self.repo_rel_path = None  # Relative path to this component's associated data stored in the repo if any.
         self.if_store_in_repo = False  # If the data of this component can be stored in the repo.
         self.is_stored_in_repo = False  # If the data of this component is stored in the repo.
-        self.is_renamable = False  # If the data of this component can be renamed
-        self.is_upgradeable = False  # If the data of this component can be upgraded (comparing version and replace)
-        self.is_duplicable = False  # If the data of this component can be duplicated (copy and paste)
         self.platform = sys.platform  # OS platform
         self.init_params = {}  # Parameters used to initialize this instance.
 

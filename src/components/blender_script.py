@@ -12,7 +12,6 @@ class BlenderScript(Component):
     """
     A base class representing a Blender script, which is always a single arbitrary Python script.
     """
-
     name = 'unknown_script'
 
     regular_script_deploy_subdir = f'{Config.app_name.lower()}_scripts'  # must be the same as BlenderSetup class's
@@ -28,9 +27,6 @@ class BlenderScript(Component):
         self.dill_extension = Config.get_dill_extension(self)
         self.__class__.dill_extension = self.dill_extension
         self.if_store_in_repo = True
-        self.is_renamable = False
-        self.is_upgradeable = False
-        self.is_duplicable = False
         self.init_params = {'script_path': script_path}
 
     def create_instance(self) -> Result:

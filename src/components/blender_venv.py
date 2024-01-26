@@ -21,6 +21,8 @@ class BlenderVenv(Component):
     """
 
     # region Init
+    
+    is_editable = True
 
     # Site-packages directory in venv
     venv_site_packages_path = Path('Lib/site-packages')
@@ -44,9 +46,6 @@ class BlenderVenv(Component):
         self.__class__.dill_extension = self.dill_extension
         # All BlenderVenv instances must be created in the repo directly. No need to store it.
         self.if_store_in_repo = False
-        self.is_renamable = False
-        self.is_upgradeable = False
-        self.is_duplicable = False
         self.init_params = {'blender_venv_path': blender_venv_abs_path, 'name': name}
 
     def _get_site_packages(self) -> PythonPackageSet:
@@ -352,17 +351,33 @@ class BlenderVenv(Component):
             raise NotImplementedError
         return
 
+    def _get_status_dict(self) -> dict:
+        """
+        Get the status dictionary of this BlenderVenv object, including the presence of the bpy package and dev libs.
+        This is used for the GUI to display the status of the Blender virtual environment.
+
+        :return: a dictionary of the status
+        """
+        site_package_names, dev_library_names = [], {}
+        if (self.data_path / self.venv_dev_libraries_path).exists():
+            dev_library_names =  [p.name for p in (self.data_path / self.venv_dev_libraries_path).iterdir()]
+        if self.site_packages is not None:
+            site_package_names = self.site_packages.package_dict.keys()
+        return {'site_packages': site_package_names,
+                'has_bpy_package': self.bpy_package is not None,
+                'dev_libraries': dev_library_names}
+
     def verify(self) -> bool:
         """
         Verify if the Blender virtual environment is valid. It is valid if the BlenderProgram object is valid and the
-        Blender virtual environment directory exists.
+        Blender virtual environment directory exists and the platform is the same as the current platform.
 
         :return: True if the Blender virtual environment is valid, otherwise False
         """
         # TODO: Add a verification on the hard-coded original Python interpreter path in the activation scripts to guard
         #       against the case where the repo moved to another location resulting in the associated BlenderProgram's
         #       Python cannot be found.
-        return super().verify() and self.blender_program.verify()
+        return super().verify() and self.blender_program.verify() and sys.platform == self.platform
 
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name} ({self.blender_program})'

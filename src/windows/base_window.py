@@ -142,6 +142,5 @@ class BaseWindow(QMainWindow):
         super().moveEvent(a0)
 
     def resizeEvent(self, a0):
-
         self.settings.set_value(self.name, 'Geometry', self.saveGeometry())
         super().resizeEvent(a0)

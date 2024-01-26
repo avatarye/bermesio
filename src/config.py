@@ -52,31 +52,40 @@ class Config:
 
     font_settings = {
         'glyph_icon_font': 'JetBrainsMono NFP',
+        'note_font': 'JetBrainsMono NFP',
         'button_font': 'Open Sans SemiCondensed',
         'label_font': 'Open Sans SemiCondensed',
+        'input_font': 'Open Sans',
     }
 
     component_settings = {
+        'Default': {
+            'name': 'Default',
+            'button_text': 'DEFAULT',
+            'color': BColors.sub_text.value,
+            'icon_char': '\U000f07e2',
+            'table_item_size_hint': (30, 30),
+        },
         'Profile': {
             'name': 'profile',
             'button_text': 'PROFILES',
             'color': BColors.profile.value,
             'icon_char': '\U000f0004',
-            'table_item_size_hint': (200, 200),
+            'table_item_size_hint': (200, 90),
         },
         'BlenderSetup': {
             'name': 'blender_setup',
             'button_text': 'SETUPS',
             'color': BColors.blender_setup.value,
             'icon_char': '\U000f01d6',
-            'table_item_size_hint': (200, 200),
+            'table_item_size_hint': (200, 130),
         },
         'BlenderProgram': {
             'name': 'blender_program',
             'button_text': 'BLENDERS',
             'color': BColors.blender_program.value,
             'icon_char': '\U000f00ab',
-            'table_item_size_hint': (160, 60),
+            'table_item_size_hint': (200, 80),
         },
         'BlenderReleasedAddon': {
             'name': 'blender_release_addon',
@@ -97,7 +106,7 @@ class Config:
             'button_text': 'VENVS',
             'color': BColors.blender_venv.value,
             'icon_char': '\U000f0862',
-            'table_item_size_hint': (200, 200),
+            'table_item_size_hint': (200, 130)
         },
         'BlenderDevAddon': {
             'name': 'blender_dev_addon',
@@ -118,7 +127,7 @@ class Config:
             'button_text': 'DEV LIBS',
             'color': BColors.python_dev_library.value,
             'icon_char': '\U0000e606',
-            'table_item_size_hint': (200, 60),
+            'table_item_size_hint': (200, 40),
         },
     }
 

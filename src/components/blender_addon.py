@@ -46,6 +46,7 @@ class BlenderAddon(Component):
     """
 
     # region Initialization
+    is_upgradeable = True
 
     name, version, blender_version_min, description = None, None, None, None
 
@@ -72,9 +73,6 @@ class BlenderAddon(Component):
         self.dill_extension = Config.get_dill_extension(self)
         self.__class__.dill_extension = self.dill_extension
         self.if_store_in_repo = True
-        self.is_renamable = False
-        self.is_upgradeable = True
-        self.is_duplicable = False
         self.init_params = {'addon_path': addon_path}
 
     def _get_addon_init_file_content(self) -> str or None:

@@ -276,6 +276,24 @@ class Repository:
         else:
             return Result(False, f'Invalid Blender venv {blender_venv}')
 
+    @classmethod
+    def get_singleton_instance(cls) -> 'Repository':
+        """
+        Get the singleton instance of the Repository class.
+
+        :return: the singleton instance of the Repository class. This is necessary due to the way the Repository class
+        instance is created not in the __init__ method, but in the create_instance() method for handling errors.
+        """
+        return cls._instance
+
+    @classmethod
+    def clear_singleton_instance(cls):
+        """
+        Clear the singleton instance of the Repository class. This is necessary for loading a new repo from a differe
+        path.
+        """
+        cls._instance = None
+
 
 class SubRepository:
 

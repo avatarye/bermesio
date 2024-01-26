@@ -3,6 +3,7 @@ from PyQt6.QtGui import QCursor, QPixmap
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 
 from commons.qt_common import get_app_icon_path
+from commons.color import BColors
 from config import Config
 
 
@@ -63,33 +64,34 @@ class MainWindowTitleBar(TitleBar):
         self.label_logo.setPixmap(QPixmap(str(get_app_icon_path(32))))
         self.label_app_title = QLabel(f'{Config.app_name.upper()} - {Config.app_subtitle}')
         self.label_app_title.setStyleSheet("""
-            font-family: "JetBrainsMono NFP", sans-serif;
-            color: #F8F8F2;
+            font-family: "%s", sans-serif;
+            color: %s;
             font-size: 12pt;
-            font-weight: normal;
-        """)
-        button_stylesheet = """
+            font-weight: bold;
+        """ % (Config.font_settings['label_font'], BColors.text.value))
+        button_stylesheet = ("""
         QPushButton {
-            font-family: "JetBrainsMono NFP", sans-serif;
-            color: #75715E;
+            font-family: "%s", sans-serif;
+            color: %s;
             font-size: 16pt;
             background-color: transparent;
             border: none;
         }
-        QPushButton:hover { color: #F8F8F2; }
-        QPushButton:pressed { color: #75715E; }
-        """
-        close_button_stylesheet = """
+        QPushButton:hover { color: %s; }
+        QPushButton:pressed { color: %s; }
+        """ % (Config.font_settings['glyph_icon_font'], BColors.sub_text.value, BColors.text.value, BColors.text.value))
+        close_button_stylesheet = ("""
         QPushButton {
-            font-family: "JetBrainsMono NFP", sans-serif;
-            color: #75715E;
+            font-family: "%s", sans-serif;
+            color: %s;
             font-size: 16pt;
             background-color: transparent;
             border: none;
         }
-        QPushButton:hover { color: #F92672; }
-        QPushButton:pressed { color: #75715E; }
-        """
+        QPushButton:hover { color: %s; }
+        QPushButton:pressed { color: %s; }
+        """ % (Config.font_settings['glyph_icon_font'], BColors.sub_text.value, BColors.profile.value,
+               BColors.profile.value))
         self.pushbutton_document = QPushButton('\U0000f02d')
         self.pushbutton_document.setFixedSize(32, 32)
         self.pushbutton_document.setStyleSheet(button_stylesheet)

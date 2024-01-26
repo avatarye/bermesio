@@ -20,6 +20,9 @@ class BlenderSetup(Component):
     is a collection of all BlenderAddon and BlenderScript objects that are associated with this setup and deployed to
     its directory in the repo.
     """
+    is_renamable = True
+    is_duplicable = True
+    is_editable = True
 
     # Setup config file name
     setup_json_path = Path(f'.blender_setup.json')
@@ -76,9 +79,6 @@ class BlenderSetup(Component):
         self.__class__.dill_extension = self.dill_extension
         # All BlenderSetup instances must be created in the repo directly. No need to store it.
         self.if_store_in_repo = False
-        self.is_renamable = True
-        self.is_upgradeable = False
-        self.is_duplicable = True
         self.init_params = {'repo_dir': repo_dir, 'name': name}
 
     def _get_setup_config(self) -> dict:
@@ -321,6 +321,17 @@ class BlenderSetup(Component):
         except Exception as e:
             return Result(False, f'Error writing to {setup_json_path}')
         return Result(True)
+
+    def _get_status_dict(self) -> dict:
+        """
+        Get the status dict of this BlenderSetup instance.
+
+        :return: a dict of the status of this BlenderSetup instance
+        """
+        status_dict = {key: [Path(component).name for component in self.setup_json[key].values()]
+                       for key in self.component_class_dict.keys()}
+        status_dict.update({'has_blender_config': (self.data_path / self.setup_blender_config_path).exists()})
+        return status_dict
 
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name}'

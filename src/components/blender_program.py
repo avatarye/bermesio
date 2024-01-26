@@ -17,6 +17,7 @@ class BlenderProgram(Component):
     """
 
     # region Initialization
+    is_renamable = True
 
     def __init__(self, blender_dir_abs_path: str or Path, name: str = None):
         """
@@ -29,9 +30,6 @@ class BlenderProgram(Component):
         self.dill_extension = Config.get_dill_extension(self)
         self.__class__.dill_extension = self.dill_extension
         self.if_store_in_repo = True
-        self.is_renamable = True
-        self.is_upgradeable = False
-        self.is_duplicable = True
         self.init_params = {'blender_dir_path': blender_dir_abs_path, 'name': name}
 
     def create_instance(self) -> Result:
@@ -141,6 +139,14 @@ class BlenderProgram(Component):
                 return Result(False, f'Error creating Blender program instance: {e}')
         else:
             return Result(False, f'Blender program directory not found at {self.data_path}')
+
+    def verify(self) -> bool:
+        """
+        Verify if the Blender program is valid by checking if the Blender executable file exists and platform.
+
+        :return: a boolean indicating if the Blender program is valid
+        """
+        return super().verify() and sys.platform == self.platform
 
     def __str__(self):
         return f'{self.__class__.__name__}: {self.name} ({self.blender_version})'

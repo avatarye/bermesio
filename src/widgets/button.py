@@ -24,6 +24,9 @@ class GlyphIconButton(QPushButton):
             QPushButton:hover {
                 color: %s;
             }
+            QPushButton:disabled {
+                color: gray;
+            }
         """ % (BColors.sub_text.value, self.color, self.font, BColors.text.value))
 
 

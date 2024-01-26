@@ -1,86 +1,108 @@
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor, QPainter, QPixmap
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
+from PyQt6.QtGui import QPainter, QPixmap
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit
 
-from commons.qt_common import get_app_icon_path
+from commons.qt_common import get_app_icon_path, LabelVerticalBar
+from components.repository import Repository
+from config import Config
 from widgets.button import ComponentOpsButton
 from widgets.component_table import ComponentTableWidget
-
-
-class ComponentLabel(QLabel):
-
-    def __init__(self, text, color, glyph_icon=None, parent=None):
-        super().__init__(parent)
-        self.setText(text.upper())
-        self.color = color
-        self.glyph_icon = glyph_icon
-        self.setFixedWidth(4)
-
-        self.text_font = QFont("JetBrainsMono NFP", 20)
-        self.text_font.setWeight(300)
-        self.setStyleSheet('border: 1px solid red;')
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor(self.color))
-        # painter.setPen(QColor(self.color))
-        #
-        # painter.setFont(self.text_font)
-        # painter.translate(self.rect().center())
-        # painter.rotate(90)
-        # painter.drawText(-80, 10, self.text())
-        painter.end()
 
 
 class ComponentWindowWidget(QWidget):
     """A base class for the widget that are used in the stacked widget of the main window."""
 
-    def __init__(self, setting_dict, sub_repo, parent=None):
+    def __init__(self, component_setting_dict, sub_repo, parent=None):
         super().__init__(parent)
-        self.setting_dict = setting_dict
-        self.name = setting_dict['name']
+        self.component_setting_dict = component_setting_dict
+        self.name = component_setting_dict['name']
         self.setObjectName(f'MainWindowComponentWidget{self.name.title()}')
-        self.color = setting_dict['color']
+        self.color = component_setting_dict['color']
         self.sub_repo = sub_repo
+        self.repo = Repository.get_singleton_instance()
 
         self._setup_gui()
+        self._setup_action()
 
     def _setup_gui(self):
+        # Set up the widgets
         self.hlayout = QHBoxLayout(self)
         self.hlayout.setContentsMargins(4, 4, 4, 4)
         self.hlayout.setSpacing(4)
-        # self.component_label = ComponentLabel(self.name, self.color, parent=self)
-        # self.component_label.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.component_table = ComponentTableWidget(self.setting_dict, self.sub_repo, parent=self)
-        self.vlayout_buttons = QVBoxLayout(self)
-        self.vlayout_buttons.setSpacing(4)
+        self.label_vertical_bar = LabelVerticalBar(self.color, 4, parent=self)
+        self.label_vertical_bar.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.component_table = ComponentTableWidget(self.component_setting_dict, self.sub_repo, parent=self)
+        self.vlayout_table_top_bar = QVBoxLayout(self)
+        self.vlayout_table_top_bar.setContentsMargins(0, 0, 0, 0)
+        self.vlayout_table_top_bar.setSpacing(2)
+        self.hlayout_top_bar = QHBoxLayout(self)
+        self.hlayout_top_bar.setSpacing(4)
+        self.line_edit_search = QLineEdit(self)
+        self.line_edit_search.setFixedWidth(415)
+        self.line_edit_search.setPlaceholderText('Search...')
+        self.line_edit_search.setStyleSheet(f'font-family: {Config.font_settings["input_font"]}; font-size: 12px;')
+        self.pushbutton_next = ComponentOpsButton('\U0000f13a', self.color, parent=self)
+        self.pushbutton_next.setToolTip('Next occurrence')
+        self.pushbutton_prev = ComponentOpsButton('\U0000f139', self.color, parent=self)
+        self.pushbutton_prev.setToolTip('Previous occurrence')
         self.pushbutton_add = ComponentOpsButton('\U000f0704', self.color, parent=self)
         self.pushbutton_add.setToolTip('Add')
         self.pushbutton_duplicate = ComponentOpsButton('\U0000f4c4', self.color, parent=self)
         self.pushbutton_duplicate.setToolTip('Duplicate')
         self.pushbutton_rename = ComponentOpsButton('\U0000f45a', self.color, parent=self)
         self.pushbutton_rename.setToolTip('Rename')
-        self.pushbutton_delete = ComponentOpsButton('\U000f17c3', self.color, parent=self)
+        self.pushbutton_delete = ComponentOpsButton('\U000f06f2', self.color, parent=self)
         self.pushbutton_delete.setToolTip('Delete')
 
+        # Set up the layout
         self.setLayout(self.hlayout)
-        # self.hlayout.addWidget(self.component_label)
-        self.hlayout.addWidget(self.component_table)
-        self.hlayout.addLayout(self.vlayout_buttons)
-        self.vlayout_buttons.addWidget(self.pushbutton_add)
-        self.vlayout_buttons.addWidget(self.pushbutton_duplicate)
-        self.vlayout_buttons.addWidget(self.pushbutton_rename)
-        self.vlayout_buttons.addWidget(self.pushbutton_delete)
-        self.vlayout_buttons.addStretch()
+        self.hlayout.addWidget(self.label_vertical_bar)
+        self.hlayout.addLayout(self.vlayout_table_top_bar)
+        self.vlayout_table_top_bar.addLayout(self.hlayout_top_bar)
+        self.hlayout_top_bar.addWidget(self.pushbutton_add)
+        self.hlayout_top_bar.addWidget(self.pushbutton_duplicate)
+        self.hlayout_top_bar.addWidget(self.pushbutton_rename)
+        self.hlayout_top_bar.addWidget(self.pushbutton_delete)
+        self.hlayout_top_bar.addStretch()
+        self.hlayout_top_bar.addWidget(self.line_edit_search)
+        self.hlayout_top_bar.addWidget(self.pushbutton_next)
+        self.hlayout_top_bar.addWidget(self.pushbutton_prev)
+        self.vlayout_table_top_bar.addWidget(self.component_table)
+
+        # Disable buttons if the component is not renamable or duplicable
+        if not self.sub_repo.config['class'].is_renamable:
+            self.pushbutton_rename.setEnabled(False)
+        if not self.sub_repo.config['class'].is_duplicable:
+            self.pushbutton_duplicate.setEnabled(False)
+
+    def _setup_action(self):
+        self.pushbutton_add.clicked.connect(self.add_component)
+        self.pushbutton_duplicate.clicked.connect(self.duplicate_component)
+        self.pushbutton_rename.clicked.connect(self.rename_component)
+        self.pushbutton_delete.clicked.connect(self.delete_component)
+
+    def add_component(self, *args, **kwargs):
+        ...
+
+    def duplicate_component(self, *args, **kwargs):
+        ...
+
+    def rename_component(self, *args, **kwargs):
+        ...
+
+    def delete_component(self, *args, **kwargs):
+        ...
 
     def paintEvent(self, event):
+        # Draw the logo as background using the central widget as the reference
+        central_widget = self.parent().parent().parent().parent()
+        pos_in_central_widget = self.mapTo(central_widget, self.pos())
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Draw the logo as background
         painter.setOpacity(0.05)
-        # painter.fillRect(self.rect(), QColor(self.color))
         pixmap = QPixmap(str(get_app_icon_path(256)))
-        painter.drawPixmap(int(self.rect().width() / 2 - pixmap.width() / 2),
-                           int(self.rect().height() / 2 - pixmap.height() / 2) - 10,
+        painter.drawPixmap(int(central_widget.rect().width() / 2 - pixmap.width() / 2),
+                           int(central_widget.rect().height() / 2 - pixmap.height() / 2)
+                           - pos_in_central_widget.y() + 20,
                            pixmap)
         painter.end()

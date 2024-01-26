@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QButtonGroup, QStackedWidget
@@ -8,6 +10,7 @@ from commons.qt_singal import SIGNAL
 from components.repository import Repository
 from config import Config
 from widgets.component_button import ComponentButton
+from widgets.component_editor import DefaultEditor, ProfileEditor, BlenderSetupEditor, BlenderVenvEditor
 from widgets.component_window_widget import ComponentWindowWidget
 from widgets.foot_bar import MainWindowFootBar
 from widgets.splitter import Splitter
@@ -82,7 +85,7 @@ class MainWindow(BaseWindow):
         self.stacked_widget_components = QStackedWidget(self)
         self.stacked_widget_components.setObjectName('MainWindowStackedWidgetComponents')
         self.stacked_widget_components.setContentsMargins(0, 0, 0, 0)
-        self.stacked_widget_components.setStyleSheet('border: 1px solid #75715E')
+        self.stacked_widget_components.setStyleSheet(f'border: 1px solid {BColors.sub_text.value}')
         self.component_widget_profile = ComponentWindowWidget(
             Config.get_component_settings('Profile'), self.repo.profile_repo, parent=self)
         self.component_widget_blender_setup = ComponentWindowWidget(
@@ -108,8 +111,8 @@ class MainWindow(BaseWindow):
         self.vlayout_splitter_lower.setSpacing(0)
         self.stacked_widget_editors = QStackedWidget(self)
         self.stacked_widget_editors.setObjectName('MainWindowStackedWidgetEditors')
-        self.stacked_widget_editors.setContentsMargins(4, 4, 4, 4)
-        self.stacked_widget_editors.setStyleSheet('border: 1px solid #75715E')
+        self.stacked_widget_editors.setContentsMargins(0, 0, 0, 0)
+        self.stacked_widget_editors.setStyleSheet(f'border: 1px solid {BColors.sub_text.value}')
 
         # Layout
         self.central_layout.addWidget(self.titleBar)
@@ -141,6 +144,10 @@ class MainWindow(BaseWindow):
         self.splitter.addWidget(self.widget_splitter_lower)
         self.widget_splitter_lower.setLayout(self.vlayout_splitter_lower)
         self.vlayout_splitter_lower.addWidget(self.stacked_widget_editors)
+        self.stacked_widget_editors.addWidget(DefaultEditor(self))
+        self.stacked_widget_editors.addWidget(ProfileEditor(self))
+        self.stacked_widget_editors.addWidget(BlenderSetupEditor(self))
+        self.stacked_widget_editors.addWidget(BlenderVenvEditor(self))
         self.central_layout.addWidget(self.foot_bar)
 
         # Floating icon
@@ -196,13 +203,27 @@ class MainWindow(BaseWindow):
         # Set the minimum width of the main window to the total width of the component buttons plus 8 pixels of padding.
         self.setMinimumWidth(get_total_component_button_width() + 16)
 
+        # Set the component editor to the default editor.
+        self.stacked_widget_editors.setCurrentIndex(0)
+
         # Emit the signal that the main window GUI is loaded for some widgets that need to adjust their GUI based on the
         # main window's GUI.
         SIGNAL.main_window_gui_loaded.emit()
 
-    def _load_repo(self):
-        result = Repository(r'c:\TechDepot\Github\bermesio\_test_data\win32\repos\example_repo').create_instance()
+    def _load_repo(self, repo_dir: str or Path = None):
+        if repo_dir is None:
+            repo_dir = Config.default_repo_dir
+        repo_dir = r'c:\TechDepot\Github\bermesio\_test_data\win32\repos\example_repo'  # Test path
+        result = Repository(repo_dir).create_instance()
         assert result, 'Error loading repo'
         repo = result.data
         repo.init_sub_repos()
         return repo
+
+    def reload_repo(self, new_repo_dir: str or Path):
+        # Clear the singleton instance of the repository and reload it.
+        Repository.clear_singleton_instance()
+        self.repo = self._load_repo(new_repo_dir)
+        # Emits signals to notify the table widgets to reload their sub_repo data.
+        for sub_repo in self.repo.sub_repos.values():
+            SIGNAL.load_sub_repo.emit(sub_repo)

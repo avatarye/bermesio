@@ -37,13 +37,14 @@ class Profile(Component):
     A class representing a Blender profile with a BlenderProgram, a BlenderSetup, and a BlenderVenv. This is the class
     that is used to launch Blender and its venv.
     """
+    is_renamable = True
+    is_duplicable = True
+    is_editable = True
 
     def __init__(self, name):
         super().__init__(None)
         self.dill_extension = Config.get_dill_extension(self)
         self.__class__.dill_extension = self.dill_extension
-        self.is_renamable = True
-        self.is_duplicable = True
         self.init_params = {'name': name}
 
     def create_instance(self) -> Result:

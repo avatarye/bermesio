@@ -21,11 +21,11 @@ QWidget#BaseWindowCentralWidget {
 /*    gridline-color: transparent;*/
 /*}*/
 
-/*QToolTip {*/
-/*    color: #F8F8F2;*/
-/*    background-color: #272822;*/
-/*    border: #75715E solid 1px;*/
-/*    font-family: "Open Sans", sans-serif;*/
-/*    font-size: 13px;*/
-/*    padding: 1px;*/
-/*}*/
+QToolTip {
+    color: #F8F8F2;
+    background-color: #272822;
+    border: #75715E solid 1px;
+    font-family: "Open Sans", sans-serif;
+    font-size: 13px;
+    padding: 1px;
+}

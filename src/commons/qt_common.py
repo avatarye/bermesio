@@ -1,6 +1,7 @@
 from PyQt6.QtCore import Qt, QFile, QIODevice, QSettings, QSize
 from PyQt6.QtGui import QFontDatabase, QFont, QColor, QPixmap, QPainter, QIcon
 from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtWidgets import QLabel
 
 from commons.common import blog
 from config import Config
@@ -31,14 +32,14 @@ def apply_stylesheet(app):
         raise FileNotFoundError("Failed to open stylesheet file.")
 
 
-def get_app_icon_path(size: int = 64):
+def get_app_icon_path(size: int = 64) -> str:
     """Get the application icon of the given size."""
     icon_path = Config.root_dir / Config.resources_paths['icons'][str(size)]
     assert icon_path.exists(), f"Icon file not found at {icon_path}"
     return icon_path
 
 
-def get_glyph_icon(char: str, font: str, color: str, size: int = 16):
+def get_glyph_icon(char: str, font: str, color: str, size: int = 16) -> QIcon:
     """Render a glyph of give font with the color and size as a QIcon."""
     font = QFont(font)
     font.setPixelSize(size)
@@ -97,3 +98,16 @@ class BSettings(QSettings):
     def get_value(self, subdir, key, default=None):
         key = f"{subdir}/{key}"
         return super().value(key, default)
+
+
+class LabelVerticalBar(QLabel):
+
+    def __init__(self, color, width, parent=None):
+        super().__init__(parent)
+        self.color = color
+        self.setFixedWidth(width)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(self.color))
+        painter.end()
