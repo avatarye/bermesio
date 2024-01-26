@@ -11,4 +11,4 @@ Bermesio is a standalone GUI application developed with the Qt framework. The in
 ## Current Status
 Bermesio is currently in early development stage. It is not ready for release yet. The current version is 0.1.0.
 ## Screenshots
-![screenshot01.png](docs%2Fdocs%2Fimages%2Fscreenshot01.png)![screenshot02.png](docs%2Fdocs%2Fimages%2Fscreenshot02.png)
+![screenshot01.png](docs%2Fdocs%2Fimages%2Fscreenshot01.png)![screenshot02.png](docs%2Fdocs%2Fimages%2Fscreenshot02.png)![screenshot03.png](docs%2Fdocs%2Fimages%2Fscreenshot03.png)
