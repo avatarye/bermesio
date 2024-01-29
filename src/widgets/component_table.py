@@ -32,6 +32,8 @@ class ComponentTableWidget(QTableWidget):
         self.setObjectName('ComponentTable' + self.name.title().replace('_', ''))
         self.sub_repo = sub_repo
 
+        self
+
         self.if_to_setup_table = False
 
         self._setup_gui()
@@ -52,7 +54,6 @@ class ComponentTableWidget(QTableWidget):
     def _setup_action(self):
         SIGNAL.load_sub_repo.connect(self._setup_items)
 
-        self.cellDoubleClicked.connect(self._load_component_in_editor)
 
     def _setup_items(self, sub_repo):
         # Check if the signal is intended for this table
@@ -72,15 +73,25 @@ class ComponentTableWidget(QTableWidget):
             row_count = max(1, math.ceil(len(self.sub_repo.pool) / column_count))
             return row_count, column_count
 
+        # Set row and column count
         row_count, column_count = get_row_column_count()
         self.setColumnCount(column_count)
         self.setRowCount(row_count)
 
+        # Set row height and column width
         for i in range(self.rowCount()):
             self.setRowHeight(i, self.item_size_hint[1])
         for j in range(self.columnCount()):
             self.setColumnWidth(j, self.viewport().width() // self.columnCount())
 
+        # Set the flags of the items to not be editable
+        for row in range(self.rowCount()):
+            for column in range(self.columnCount()):
+                item = self.item(row, column)
+                if item:  # check if the item is not None
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+
+        # Add the component items to the table
         for i, component_item in enumerate(self.component_items):
             row = i // column_count
             col = i % column_count
@@ -89,12 +100,15 @@ class ComponentTableWidget(QTableWidget):
         # After the table is set up, flag the table to not be setup in the next paint event
         self.if_to_setup_table = False
 
-    def _load_component_in_editor(self, row, column):
-        # Check if the component is editable, if yes, emit the signal to load the component in the editor
-        if self.sub_repo.config['class'].is_editable:
-            component = self.cellWidget(row, column).component
-            assert component, f'Component at row {row} and column {column} is None.'
-            SIGNAL.load_component_in_editor.emit(component)
+    def mouseDoubleClickEvent(self, event):
+        item = self.indexWidget(self.indexAt(event.pos()))
+        # If doubleclick on an empty cell, ignore the event
+        if item is None:
+            event.ignore()
+        # If doubleclick on a cell with a component item, load the component in the editor
+        else:
+            if self.sub_repo.config['class'].is_editable:
+                SIGNAL.load_component_in_editor.emit(item.component)
 
     def paintEvent(self, event):
         if self.if_to_setup_table:  # The main way to update the table layout dynamically

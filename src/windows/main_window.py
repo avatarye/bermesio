@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QButtonGroup, QStackedWidget
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QButtonGroup, QStackedWidget, QScrollArea, QFrame
 
 from commons.color import BColors
 from commons.qt_common import get_app_icon_path
@@ -35,6 +35,7 @@ class MainWindow(BaseWindow):
 
         # Upper portion of the splitter
         self.widget_splitter_upper = QWidget(self)
+        self.widget_splitter_upper.setMinimumHeight(20)
         self.vlayout_splitter_upper = QVBoxLayout(self.widget_splitter_upper)
         self.vlayout_splitter_upper.setContentsMargins(4, 0, 4, 0)
         self.vlayout_splitter_upper.setSpacing(0)
@@ -105,14 +106,21 @@ class MainWindow(BaseWindow):
         self.component_widget_python_dev_library = ComponentWindowWidget(
             Config.get_component_settings('PythonDevLibrary'), self.repo.python_dev_library_repo, parent=self)
         # Lower portion of the splitter
-        self.widget_splitter_lower = QWidget(self)
-        self.vlayout_splitter_lower = QVBoxLayout(self.widget_splitter_lower)
+        self.widget_splitter_lower = QScrollArea(self)
+        self.widget_splitter_lower.setWidgetResizable(True)
+        self.widget_splitter_lower.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.widget_splitter_lower.setMinimumHeight(40)
+        self.widget_splitter_lower.setContentsMargins(0, 0, 0, 0)
+        self.widget_splitter_lower.setFrameStyle(QFrame.Shape.NoFrame)
+        self.widget_splitter_lower_widget = QWidget(self)
+        self.vlayout_splitter_lower = QVBoxLayout(self.widget_splitter_lower_widget)
         self.vlayout_splitter_lower.setContentsMargins(4, 0, 4, 0)
         self.vlayout_splitter_lower.setSpacing(0)
         self.stacked_widget_editors = QStackedWidget(self)
         self.stacked_widget_editors.setObjectName('MainWindowStackedWidgetEditors')
         self.stacked_widget_editors.setContentsMargins(0, 0, 0, 0)
-        self.stacked_widget_editors.setStyleSheet(f'border: 1px solid {BColors.sub_text.value}')
+        self.stacked_widget_editors.setStyleSheet(f'border: 1px solid {BColors.sub_text.value}; '
+                                                  f'background: transparent;')
 
         # Layout
         self.central_layout.addWidget(self.titleBar)
@@ -142,7 +150,8 @@ class MainWindow(BaseWindow):
         self.stacked_widget_components.addWidget(self.component_widget_python_dev_library)
 
         self.splitter.addWidget(self.widget_splitter_lower)
-        self.widget_splitter_lower.setLayout(self.vlayout_splitter_lower)
+        self.widget_splitter_lower.setWidget(self.widget_splitter_lower_widget)
+        self.widget_splitter_lower_widget.setLayout(self.vlayout_splitter_lower)
         self.vlayout_splitter_lower.addWidget(self.stacked_widget_editors)
         self.stacked_widget_editors.addWidget(DefaultEditor(self))
         self.stacked_widget_editors.addWidget(ProfileEditor(self))

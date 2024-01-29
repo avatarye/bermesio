@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
 import packaging.version
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor, QPainter, QPixmap, QFontMetrics, QIcon
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QTableWidget, QPushButton, QFrame
+from PyQt6.QtCore import Qt, QMimeData, QByteArray
+from PyQt6.QtGui import QFontMetrics, QIcon, QDrag
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QApplication
 from PyQt6.QtSvg import QSvgRenderer
 
 from config import Config
@@ -100,6 +100,30 @@ class ComponentItemWidget(QWidget):
             return string
         else:
             return self._get_width_safe_string(string[:-1], font, max_width)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_start_position = event.pos()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        # If the mouse move event is not triggered by a left button press, ignore the event
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
+        # If the mouse move event is triggered by a left button press, but the mouse has not moved far enough, ignore
+        if (event.pos() - self.drag_start_position).manhattanLength() < QApplication.startDragDistance():
+            return
+        # Set up the drag and drop
+        drag, mime_data, custom_data = QDrag(self), QMimeData(), QByteArray()
+        # Add component uuid to the mime data
+        custom_data.append(self.component.uuid.encode())
+        # Add component to the global drag drop dict in Config for retrieval in the drop event
+        Config.drag_drop_objects[self.component.uuid] = self.component
+        # Set the mime data
+        mime_data.setData(Config.mime_custom_type_str, custom_data)
+        drag.setMimeData(mime_data)
+        # Set the drag icon
+        drag.exec(Qt.DropAction.CopyAction | Qt.DropAction.MoveAction)
 
 
 class ProfileItemWidget(ComponentItemWidget):

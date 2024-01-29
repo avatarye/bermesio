@@ -53,6 +53,7 @@ class Config:
     font_settings = {
         'glyph_icon_font': 'JetBrainsMono NFP',
         'note_font': 'JetBrainsMono NFP',
+        'title_font': 'JetBrainsMono NFP',
         'button_font': 'Open Sans SemiCondensed',
         'label_font': 'Open Sans SemiCondensed',
         'input_font': 'Open Sans',
@@ -62,6 +63,7 @@ class Config:
         'Default': {
             'name': 'Default',
             'button_text': 'DEFAULT',
+            'display_text': 'Default',
             'color': BColors.sub_text.value,
             'icon_char': '\U000f07e2',
             'table_item_size_hint': (30, 30),
@@ -69,6 +71,7 @@ class Config:
         'Profile': {
             'name': 'profile',
             'button_text': 'PROFILES',
+            'display_text': 'Profile',
             'color': BColors.profile.value,
             'icon_char': '\U000f0004',
             'table_item_size_hint': (200, 90),
@@ -76,6 +79,7 @@ class Config:
         'BlenderSetup': {
             'name': 'blender_setup',
             'button_text': 'SETUPS',
+            'display_text': 'Blender Setup',
             'color': BColors.blender_setup.value,
             'icon_char': '\U000f01d6',
             'table_item_size_hint': (200, 130),
@@ -83,6 +87,7 @@ class Config:
         'BlenderProgram': {
             'name': 'blender_program',
             'button_text': 'BLENDERS',
+            'display_text': 'Blender',
             'color': BColors.blender_program.value,
             'icon_char': '\U000f00ab',
             'table_item_size_hint': (200, 80),
@@ -90,6 +95,7 @@ class Config:
         'BlenderReleasedAddon': {
             'name': 'blender_release_addon',
             'button_text': 'ADDONS',
+            'display_text': 'Blender Addon',
             'color': BColors.blender_released_addon.value,
             'icon_char': '\U000f003c',
             'table_item_size_hint': (200, 80),
@@ -97,6 +103,7 @@ class Config:
         'BlenderReleasedScript': {
             'name': 'blender_release_script',
             'button_text': 'SCRIPTS',
+            'display_text': 'Blender Script',
             'color': BColors.blender_released_script.value,
             'icon_char': '\U000f09ee',
             'table_item_size_hint': (200, 60),
@@ -104,6 +111,7 @@ class Config:
         'BlenderVenv': {
             'name': 'blender_venv',
             'button_text': 'VENVS',
+            'display_text': 'Blender Venv',
             'color': BColors.blender_venv.value,
             'icon_char': '\U000f0862',
             'table_item_size_hint': (200, 130)
@@ -111,6 +119,7 @@ class Config:
         'BlenderDevAddon': {
             'name': 'blender_dev_addon',
             'button_text': 'DEV ADDONS',
+            'display_text': 'Blender ',
             'color': BColors.blender_dev_addon.value,
             'icon_char': '\U000f1754',
             'table_item_size_hint': (200, 80),
@@ -118,6 +127,7 @@ class Config:
         'BlenderDevScript': {
             'name': 'blender_dev_script',
             'button_text': 'DEV SCRIPTS',
+            'display_text': 'Blender Dev Script',
             'color': BColors.blender_dev_script.value,
             'icon_char': '\U000f0dc9',
             'table_item_size_hint': (200, 60),
@@ -125,11 +135,15 @@ class Config:
         'PythonDevLibrary': {
             'name': 'python_dev_library',
             'button_text': 'DEV LIBS',
+            'display_text': 'Python Dev Library',
             'color': BColors.python_dev_library.value,
             'icon_char': '\U0000e606',
             'table_item_size_hint': (200, 40),
         },
     }
+
+    mime_custom_type_str = 'application/x-bermesio-component'
+    drag_drop_objects = {}
 
     def __new__(cls, *args, **kwargs):
         """Guard against instantiation."""

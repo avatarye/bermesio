@@ -10,6 +10,8 @@
 
 QLabel {
     color: #75715E;
+    background: transparent;
+    border: 0px;
 }
 
 QWidget#BaseWindowCentralWidget {
@@ -21,11 +23,43 @@ QWidget#BaseWindowCentralWidget {
 /*    gridline-color: transparent;*/
 /*}*/
 
-QToolTip {
-    color: #F8F8F2;
-    background-color: #272822;
-    border: #75715E solid 1px;
-    font-family: "Open Sans", sans-serif;
-    font-size: 13px;
-    padding: 1px;
+/*QToolTip {*/
+/*    color: #F8F8F2;*/
+/*    background-color: #272822;*/
+/*    border: #75715E solid 1px;*/
+/*    font-family: "Open Sans", sans-serif;*/
+/*    font-size: 13px;*/
+/*    padding: 1px;*/
+/*}*/
+
+
+QScrollBar:vertical
+{
+    background-color: transparent;
+    width: 12px;
+    margin: 0px 4px 0px 2px;
+    border: transparent;
+    border-radius: 2px;
+}
+
+QScrollBar::handle:vertical
+{
+    background-color: #75715E;
+    min-height: 20px;
+    border-radius: 3px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+    width: 0px;
+    subcontrol-position: none;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+    width: 0px;
 }
