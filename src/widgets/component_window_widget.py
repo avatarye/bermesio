@@ -2,6 +2,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPainter, QPixmap
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLineEdit
 
+from commons.color import BColors
 from commons.qt_common import get_app_icon_path, LabelVerticalBar
 from components.repository import Repository
 from config import Config
@@ -12,9 +13,10 @@ from widgets.component_table import ComponentTableWidget
 class ComponentWindowWidget(QWidget):
     """A base class for the widget that are used in the stacked widget of the main window."""
 
-    def __init__(self, component_setting_dict, sub_repo, parent=None):
-        super().__init__(parent)
+    def __init__(self, component_setting_dict, sub_repo, parent_window=None):
+        super().__init__()
         self.component_setting_dict = component_setting_dict
+        self.parent_window = parent_window
         self.name = component_setting_dict['name']
         self.setObjectName(f'MainWindowComponentWidget{self.name.title()}')
         self.color = component_setting_dict['color']
@@ -40,7 +42,8 @@ class ComponentWindowWidget(QWidget):
         self.line_edit_search = QLineEdit(self)
         self.line_edit_search.setFixedWidth(415)
         self.line_edit_search.setPlaceholderText('Search...')
-        self.line_edit_search.setStyleSheet(f'font-family: {Config.font_settings["input_font"]}; font-size: 12px;')
+        self.line_edit_search.setStyleSheet(f'font-family: {Config.font_settings["input_font"]}; font-size: 12px;'
+                                            f'border: 1px solid {BColors.sub_text.value};')
         self.pushbutton_next = ComponentOpsButton('\U0000f13a', self.color, parent=self)
         self.pushbutton_next.setToolTip('Next occurrence')
         self.pushbutton_prev = ComponentOpsButton('\U0000f139', self.color, parent=self)
@@ -95,11 +98,11 @@ class ComponentWindowWidget(QWidget):
 
     def paintEvent(self, event):
         # Draw the logo as background using the central widget as the reference
-        central_widget = self.parent().parent().parent().parent()
+        central_widget = self.parent_window.findChild(QWidget, 'BaseWindowCentralWidget')
         pos_in_central_widget = self.mapTo(central_widget, self.pos())
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setOpacity(0.05)
+        painter.setOpacity(0.03)
         pixmap = QPixmap(str(get_app_icon_path(256)))
         painter.drawPixmap(int(central_widget.rect().width() / 2 - pixmap.width() / 2),
                            int(central_widget.rect().height() / 2 - pixmap.height() / 2)

@@ -12,6 +12,11 @@ from widgets.component_table import ComponentTableWidget
 
 
 class ComponentEditorDropWidget(QWidget):
+    """
+    A class that is used to visually represent a component contained within a component editor, such a BlenderProgram
+    within a Profile editor. It accepts drag and drop which is the main way to link a component to tue component being
+    edited. It also displays the linked component if there is any.
+    """
 
     def __init__(self, parent_editor, component_class_name):
         super().__init__(parent_editor)
@@ -77,9 +82,10 @@ class ComponentEditorDropWidget(QWidget):
 
 class ComponentEditor(QWidget):
 
-    def __init__(self, component_class_name, parent=None):
-        super().__init__(parent)
+    def __init__(self, component_class_name, parent_window=None):
+        super().__init__()
         self.component_class_name = component_class_name
+        self.parent_window = parent_window
         self.component_setting_dict = Config.component_settings[self.component_class_name]
         self.name = self.component_setting_dict['name']
         self.setObjectName(f'MainWindowComponentEditor{self.name.title()}')
@@ -112,11 +118,11 @@ class ComponentEditor(QWidget):
 
     def paintEvent(self, event):
         # Draw the logo as background using the central widget as the reference
-        central_widget = self.parent().parent().parent().parent().parent()
+        central_widget = self.parent_window.findChild(QWidget, 'BaseWindowCentralWidget')
         pos_in_central_widget = self.mapTo(central_widget, self.pos())
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setOpacity(0.05)
+        painter.setOpacity(0.03)
         pixmap = QPixmap(str(get_app_icon_path(256)))
         painter.drawPixmap(int(central_widget.rect().width() / 2 - pixmap.width() / 2),
                            int(central_widget.rect().height() / 2 - pixmap.height() / 2)
@@ -126,8 +132,8 @@ class ComponentEditor(QWidget):
 
 class DefaultEditor(ComponentEditor):
 
-    def __init__(self, parent=None):
-        super().__init__('Default', parent)
+    def __init__(self, parent_window):
+        super().__init__('Default', parent_window)
 
     def _setup_gui(self):
         """
@@ -165,8 +171,8 @@ class DefaultEditor(ComponentEditor):
 
 class ProfileEditor(ComponentEditor):
 
-    def __init__(self, parent=None):
-        super().__init__('Profile', parent)
+    def __init__(self, parent_window=None):
+        super().__init__('Profile', parent_window)
 
     def _setup_gui(self):
         super()._setup_gui()
@@ -204,12 +210,13 @@ class ProfileEditor(ComponentEditor):
         if component.__class__.__name__ == self.component_class_name:
             self.component = component
             self.label_component_name.setText(self.component.name)
+
             self.parent().setCurrentWidget(self)
 
 
 class BlenderSetupEditor(ComponentEditor):
-    def __init__(self, parent=None):
-        super().__init__('BlenderSetup', parent)
+    def __init__(self, parent_window=None):
+        super().__init__('BlenderSetup', parent_window)
 
     def _setup_gui(self):
         super()._setup_gui()
@@ -232,8 +239,8 @@ class BlenderSetupEditor(ComponentEditor):
             self.parent().setCurrentWidget(self)
 
 class BlenderVenvEditor(ComponentEditor):
-    def __init__(self, parent=None):
-        super().__init__('BlenderVenv', parent)
+    def __init__(self, parent_window=None):
+        super().__init__('BlenderVenv', parent_window)
 
     def load_component(self, component):
         if component.__class__.__name__ == self.component_class_name:

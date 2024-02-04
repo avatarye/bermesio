@@ -31,13 +31,14 @@ class MainWindow(BaseWindow):
         self.titleBar = MainWindowTitleBar(self)
         self.splitter = Splitter(Qt.Orientation.Vertical, self)
         self.splitter.setObjectName('MainWindowSplitter')
+        self.splitter.setContentsMargins(4, 0, 4, 0)
         self.foot_bar = MainWindowFootBar(self)
 
         # Upper portion of the splitter
         self.widget_splitter_upper = QWidget(self)
-        self.widget_splitter_upper.setMinimumHeight(20)
+        self.widget_splitter_upper.setMinimumHeight(60)
         self.vlayout_splitter_upper = QVBoxLayout(self.widget_splitter_upper)
-        self.vlayout_splitter_upper.setContentsMargins(4, 0, 4, 0)
+        self.vlayout_splitter_upper.setContentsMargins(0, 0, 0, 0)
         self.vlayout_splitter_upper.setSpacing(0)
         # Component buttons
         self.hlayout_component_buttons = QHBoxLayout()
@@ -83,44 +84,54 @@ class MainWindow(BaseWindow):
         self.button_group_component_buttons.addButton(self.pushbutton_blender_dev_script)
         self.button_group_component_buttons.addButton(self.pushbutton_python_dev_library)
         # Component widgets
+        self.scroll_area_upper = QScrollArea(self)
+        self.scroll_area_upper.setWidgetResizable(True)
+        self.scroll_area_upper.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area_upper.setMinimumHeight(40)
+        self.scroll_area_upper.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area_upper.setStyleSheet("""QScrollArea {border: 1px solid %s;}""" % (BColors.sub_text.value))
         self.stacked_widget_components = QStackedWidget(self)
         self.stacked_widget_components.setObjectName('MainWindowStackedWidgetComponents')
         self.stacked_widget_components.setContentsMargins(0, 0, 0, 0)
-        self.stacked_widget_components.setStyleSheet(f'border: 1px solid {BColors.sub_text.value}')
         self.component_widget_profile = ComponentWindowWidget(
-            Config.get_component_settings('Profile'), self.repo.profile_repo, parent=self)
+            Config.get_component_settings('Profile'), self.repo.profile_repo, parent_window=self)
         self.component_widget_blender_setup = ComponentWindowWidget(
-            Config.get_component_settings('BlenderSetup'), self.repo.blender_setup_repo, parent=self)
+            Config.get_component_settings('BlenderSetup'), self.repo.blender_setup_repo, parent_window=self)
         self.component_widget_blender_program = ComponentWindowWidget(
-            Config.get_component_settings('BlenderProgram'), self.repo.blender_program_repo, parent=self)
+            Config.get_component_settings('BlenderProgram'), self.repo.blender_program_repo, parent_window=self)
         self.component_widget_blender_released_addon = ComponentWindowWidget(
-            Config.get_component_settings('BlenderReleasedAddon'), self.repo.blender_released_addon_repo, parent=self)
+            Config.get_component_settings('BlenderReleasedAddon'), self.repo.blender_released_addon_repo,
+            parent_window=self)
         self.component_widget_blender_released_script = ComponentWindowWidget(
-            Config.get_component_settings('BlenderReleasedScript'), self.repo.blender_released_script_repo, parent=self)
+            Config.get_component_settings('BlenderReleasedScript'), self.repo.blender_released_script_repo,
+            parent_window=self)
         self.component_widget_blender_venv = ComponentWindowWidget(
-            Config.get_component_settings('BlenderVenv'), self.repo.blender_venv_repo, parent=self)
+            Config.get_component_settings('BlenderVenv'), self.repo.blender_venv_repo, parent_window=self)
         self.component_widget_blender_dev_addon = ComponentWindowWidget(
-            Config.get_component_settings('BlenderDevAddon'), self.repo.blender_dev_addon_repo, parent=self)
+            Config.get_component_settings('BlenderDevAddon'), self.repo.blender_dev_addon_repo, parent_window=self)
         self.component_widget_blender_dev_script = ComponentWindowWidget(
-            Config.get_component_settings('BlenderDevScript'), self.repo.blender_dev_script_repo, parent=self)
+            Config.get_component_settings('BlenderDevScript'), self.repo.blender_dev_script_repo, parent_window=self)
         self.component_widget_python_dev_library = ComponentWindowWidget(
-            Config.get_component_settings('PythonDevLibrary'), self.repo.python_dev_library_repo, parent=self)
+            Config.get_component_settings('PythonDevLibrary'), self.repo.python_dev_library_repo, parent_window=self)
         # Lower portion of the splitter
         self.widget_splitter_lower = QScrollArea(self)
         self.widget_splitter_lower.setWidgetResizable(True)
         self.widget_splitter_lower.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.widget_splitter_lower.setMinimumHeight(40)
         self.widget_splitter_lower.setContentsMargins(0, 0, 0, 0)
-        self.widget_splitter_lower.setFrameStyle(QFrame.Shape.NoFrame)
+        self.widget_splitter_lower.setStyleSheet("""QScrollArea {border: 1px solid %s;}""" % (BColors.sub_text.value))
         self.widget_splitter_lower_widget = QWidget(self)
         self.vlayout_splitter_lower = QVBoxLayout(self.widget_splitter_lower_widget)
-        self.vlayout_splitter_lower.setContentsMargins(4, 0, 4, 0)
+        self.vlayout_splitter_lower.setContentsMargins(0, 0, 0, 0)
         self.vlayout_splitter_lower.setSpacing(0)
         self.stacked_widget_editors = QStackedWidget(self)
         self.stacked_widget_editors.setObjectName('MainWindowStackedWidgetEditors')
         self.stacked_widget_editors.setContentsMargins(0, 0, 0, 0)
-        self.stacked_widget_editors.setStyleSheet(f'border: 1px solid {BColors.sub_text.value}; '
-                                                  f'background: transparent;')
+        self.stacked_widget_editors.setStyleSheet(f'background: transparent;')
+        self.default_editor = DefaultEditor(parent_window=self)
+        self.profile_editor = ProfileEditor(parent_window=self)
+        self.blender_setup_editor = BlenderSetupEditor(parent_window=self)
+        self.blender_venv_editor = BlenderVenvEditor(parent_window=self)
 
         # Layout
         self.central_layout.addWidget(self.titleBar)
@@ -138,7 +149,8 @@ class MainWindow(BaseWindow):
         self.hlayout_component_buttons.addWidget(self.pushbutton_blender_dev_script)
         self.hlayout_component_buttons.addWidget(self.pushbutton_python_dev_library)
         self.hlayout_component_buttons.addStretch()
-        self.vlayout_splitter_upper.addWidget(self.stacked_widget_components)
+        self.vlayout_splitter_upper.addWidget(self.scroll_area_upper)
+        self.scroll_area_upper.setWidget(self.stacked_widget_components)
         self.stacked_widget_components.addWidget(self.component_widget_profile)
         self.stacked_widget_components.addWidget(self.component_widget_blender_setup)
         self.stacked_widget_components.addWidget(self.component_widget_blender_program)
@@ -153,10 +165,10 @@ class MainWindow(BaseWindow):
         self.widget_splitter_lower.setWidget(self.widget_splitter_lower_widget)
         self.widget_splitter_lower_widget.setLayout(self.vlayout_splitter_lower)
         self.vlayout_splitter_lower.addWidget(self.stacked_widget_editors)
-        self.stacked_widget_editors.addWidget(DefaultEditor(self))
-        self.stacked_widget_editors.addWidget(ProfileEditor(self))
-        self.stacked_widget_editors.addWidget(BlenderSetupEditor(self))
-        self.stacked_widget_editors.addWidget(BlenderVenvEditor(self))
+        self.stacked_widget_editors.addWidget(self.default_editor)
+        self.stacked_widget_editors.addWidget(self.profile_editor)
+        self.stacked_widget_editors.addWidget(self.blender_setup_editor)
+        self.stacked_widget_editors.addWidget(self.blender_venv_editor)
         self.central_layout.addWidget(self.foot_bar)
 
         # Floating icon
