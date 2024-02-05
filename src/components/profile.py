@@ -20,7 +20,7 @@ class BlenderLaunchConfig:
     if_use_blender_setup_addons_scripts: bool = True
     if_include_venv_site_packages: bool = True
     if_include_venv_bpy: bool = False
-    if_include_venv_local_libs: bool = True
+    if_include_venv_python_dev_libs: bool = True
 
 
 @dataclass
@@ -58,6 +58,8 @@ class Profile(Component):
             self.blender_program: BlenderProgram = None
             self.blender_setup: BlenderSetup = None
             self.blender_venv: BlenderVenv = None
+            self.blender_launch_config = BlenderLaunchConfig()
+            self.venv_launch_config = VenvLaunchConfig()
             return Result(True, f'Profile {self.name} created', self)
         else:
             return Result(False, f'Invalid name for Profile: {self.name}')
@@ -125,6 +127,22 @@ class Profile(Component):
             return Result(False, f'Component type {component_class.__name__} cannot be cleared from Profile '
                                    f'{self.name}')
 
+    @Dillable.save_dill
+    def update_launch_config(self, launch_config: BlenderLaunchConfig) -> Result:
+        """
+        Update the launch configuration for launching Blender or venv. This is mainly called by the GUI.
+
+        :param launch_config: a BlenderLaunchConfig or VenvLaunchConfig object for updating.
+
+        :return: a Result object indicating if the updating is successful
+        """
+        if isinstance(launch_config, BlenderLaunchConfig):
+            self.blender_launch_config = launch_config
+        elif isinstance(launch_config, VenvLaunchConfig):
+            self.venv_launch_config = launch_config
+        return Result(True, f'Launch configuration updated for Profile {self.name}')
+
+    @Dillable.save_dill
     def launch_blender(self, launch_config: BlenderLaunchConfig = BlenderLaunchConfig()) -> Result:
         """
         Launch Blender GUI with the specified configuration.
@@ -133,12 +151,14 @@ class Profile(Component):
 
         :return: a Result object indicating if the launching is successful
         """
+        # Store the input launch_config as the current launch_config
+        self.blender_launch_config = launch_config
         if self.blender_program is not None:
             # Set BlenderSetup's config and scripts as environment variables for Blender to use
-            if self.blender_setup is not None and launch_config.if_use_blender_setup_config:
+            if self.blender_setup is not None and self.blender_launch_config.if_use_blender_setup_config:
                 user_config_path = self.blender_setup.data_path / self.blender_setup.setup_blender_config_path
                 os.environ['BLENDER_USER_CONFIG'] = str(user_config_path)
-            if self.blender_setup is not None and launch_config.if_use_blender_setup_addons_scripts:
+            if self.blender_setup is not None and self.blender_launch_config.if_use_blender_setup_addons_scripts:
                 user_script_path = self.blender_setup.data_path / self.blender_setup.setup_scripts_path
                 os.environ['BLENDER_USER_SCRIPTS'] = str(user_script_path)
 
@@ -148,15 +168,15 @@ class Profile(Component):
                 result = self.blender_venv.remove_blender_pth()
                 if not result:
                     return result
-                if launch_config.if_include_venv_site_packages:
+                if self.blender_launch_config.if_include_venv_site_packages:
                     result = self.blender_venv.add_site_packages_to_blender_pth()
                     if not result:
                         return result
-                if launch_config.if_include_venv_bpy:
+                if self.blender_launch_config.if_include_venv_bpy:
                     result = self.blender_venv.add_bpy_package_to_blender_pth()
                     if not result:
                         return result
-                if launch_config.if_include_venv_local_libs:
+                if self.blender_launch_config.if_include_venv_python_dev_libs:
                     result = self.blender_venv.add_dev_libraries_to_blender_pth()
                     if not result:
                         return result
@@ -176,11 +196,9 @@ class Profile(Component):
         else:
             return Result(False, f'BlenderProgram is not set for Profile {self.name}')
 
-    def configure_venv(self, launch_config: VenvLaunchConfig = VenvLaunchConfig()) -> Result:
+    def _configure_venv(self) -> Result:
         """
         Configure the Blender venv associated with this Profile.
-
-        :param launch_config: a VenvLaunchConfig object specifying the configuration for configuring the venv
 
         :return: a Result object indicating if the configuration is successful
         """
@@ -190,11 +208,11 @@ class Profile(Component):
                 result = self.blender_venv.remove_venv_pth()
                 if not result:
                     return result
-                if launch_config.if_include_venv_bpy:
+                if self.venv_launch_config.if_include_venv_bpy:
                     result = self.blender_venv.add_bpy_package_to_venv_pth()
                     if not result:
                         return result
-                if launch_config.if_include_venv_local_libs:
+                if self.venv_launch_config.if_include_venv_local_libs:
                     result = self.blender_venv.add_dev_libraries_to_venv_pth()
                     if not result:
                         return result
@@ -204,6 +222,7 @@ class Profile(Component):
         else:
             return Result(False, f'Blender program is not set for Profile {self.name}')
 
+    @Dillable.save_dill
     def launch_venv(self, launch_config: VenvLaunchConfig = VenvLaunchConfig()) -> Result:
         """
         Launch the Blender venv associated with this Profile with the specified configuration.
@@ -212,7 +231,8 @@ class Profile(Component):
 
         :return: a Result object indicating if the launching is successful
         """
-        result = self.configure_venv(launch_config)
+        self.venv_launch_config = launch_config
+        result = self._configure_venv()
         if not result:
             return result
         # Launch venv

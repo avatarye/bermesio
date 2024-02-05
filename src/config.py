@@ -53,7 +53,7 @@ class Config:
     font_settings = {
         'glyph_icon_font': 'JetBrainsMono NFP',
         'note_font': 'JetBrainsMono NFP',
-        'title_font': 'JetBrainsMono NFP',
+        'title_font': 'Open Sans SemiCondensed',
         'button_font': 'Open Sans SemiCondensed',
         'label_font': 'Open Sans SemiCondensed',
         'input_font': 'Open Sans',

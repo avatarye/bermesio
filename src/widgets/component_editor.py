@@ -1,13 +1,17 @@
 from PyQt6.QtCore import Qt, QRect
 from PyQt6.QtGui import QPainter, QPixmap, QColor, QPen
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QSizePolicy
+from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, QSizePolicy, QFrame, QSpacerItem, QGridLayout,
+                             QCheckBox, QPushButton)
 
 from commons.color import BColors
 from commons.qt_common import get_app_icon_path, LabelVerticalBar
 from commons.qt_singal import SIGNAL
+from components.profile import BlenderLaunchConfig, VenvLaunchConfig
 from components.repository import Repository
 from config import Config
 from widgets.button import ComponentOpsButton
+from widgets.component_item import (ProfileItemWidget, BlenderProgramItemWidget, BlenderSetupItemWidget,
+                                    BlenderVenvItemWidget, ComponentItemWidgetManager)
 from widgets.component_table import ComponentTableWidget
 
 
@@ -18,6 +22,20 @@ class ComponentEditorDropWidget(QWidget):
     edited. It also displays the linked component if there is any.
     """
 
+    _component = None
+    @property
+    def component(self):
+        return self._component
+
+    @component.setter
+    def component(self, value):
+        self._component = value
+        if hasattr(self, 'vlayout'):
+            self.layout().removeWidget(self.component_widget)
+            self.component_widget = ComponentItemWidgetManager.create(value, None) if value is not None else \
+                self._get_empty_component_label()
+            self.layout().addWidget(self.component_widget)
+
     def __init__(self, parent_editor, component_class_name):
         super().__init__(parent_editor)
         self.parent_editor = parent_editor
@@ -26,7 +44,7 @@ class ComponentEditorDropWidget(QWidget):
         self.component_color = Config.component_settings[self.component_class_name]['color']
         self.component = None
         self.setAcceptDrops(True)
-        self.setFixedHeight(130)
+        self.setFixedHeight(120)
 
         self._setup_gui()
 
@@ -34,14 +52,17 @@ class ComponentEditorDropWidget(QWidget):
         self.vlayout = QVBoxLayout(self)
         self.vlayout.setContentsMargins(0, 0, 0, 0)
         self.vlayout.setSpacing(0)
-        self.label_empty_component = QLabel(f'Drop a {self.component_display_type} here', parent=self)
-        self.label_empty_component.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_empty_component.setStyleSheet(f'border: 0px; background: transparent; color: {BColors.text.value};'
+        self.component_widget = self._get_empty_component_label()
+        self.setLayout(self.vlayout)
+        self.vlayout.addWidget(self.component_widget)
+
+    def _get_empty_component_label(self):
+        label_empty_component = QLabel(f'Drop a {self.component_display_type} here', parent=self)
+        label_empty_component.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label_empty_component.setStyleSheet(f'border: 0px; background: transparent; color: {BColors.text.value};'
                                                  f'font-family: {Config.font_settings["input_font"]}; font-size: 13px;'
                                                  f'font-weight: normal')
-
-        self.setLayout(self.vlayout)
-        self.vlayout.addWidget(self.label_empty_component)
+        return label_empty_component
 
     def _get_component_from_mime_data(self, mime_data):
         # Get the component uuid from the mime data, then retrieve the component from the Config.drag_drop_objects dict
@@ -71,11 +92,17 @@ class ComponentEditorDropWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setOpacity(0.05)
         painter.fillRect(self.rect(), QColor(self.component_color))
-        painter.setOpacity(0.2)
-        selection_pen = QPen(QColor(BColors.sub_text.value))
-        selection_pen.setWidth(2)
-        selection_pen.setStyle(Qt.PenStyle.DotLine)
-        painter.setPen(selection_pen)
+        if self.component is None:  # Draw dotted line when there is no component
+            painter.setOpacity(0.2)
+            border_pen = QPen(QColor(BColors.sub_text.value))
+            border_pen.setWidth(2)
+            border_pen.setStyle(Qt.PenStyle.DotLine)
+        else:  # Draw solid line when there is a component
+            painter.setOpacity(0.5)
+            border_pen = QPen(QColor(self.component_color))
+            border_pen.setWidth(2)
+            border_pen.setStyle(Qt.PenStyle.SolidLine)
+        painter.setPen(border_pen)
         painter.drawRect(QRect(1, 1, self.rect().width() - 2, self.rect().height() - 2))
         painter.end()
 
@@ -95,8 +122,49 @@ class ComponentEditor(QWidget):
                                f'font-weight: normal; border: 0px; background: transparent;')
         self.small_text_style = (f'font-family: {Config.font_settings["note_font"]}; font-size: 10px;'
                                f'font-weight: bold; border: 0px; background: transparent;')
-        self.name_text_style = (f'font-family: {Config.font_settings["title_font"]}; font-size: 20px; '
+        self.name_text_style = (f'font-family: {Config.font_settings["title_font"]}; font-size: 22px; '
                                 f'color: {self.color}; font-weight: bold; border: 0px; background: transparent;')
+        self.sub_name_text_style = (f'font-family: {Config.font_settings["title_font"]}; font-size: 16px; '
+                                    f'color: {BColors.sub_text.value}; font-weight: bold; border: 0px; '
+                                    f'background: transparent;')
+        self.launch_option_check_box_style = """
+            QCheckBox {
+                font-family: %s;
+                font-size: 11px;
+                font-weight: bold;
+                color: %s;
+            }
+            QCheckBox::indicator {
+                width: 6px;
+                height: 6px;
+                border: 2px solid %s;
+                border-radius: 4px;
+                background: transparent;
+            }
+            QCheckBox::indicator:checked {
+                width: 6px;
+                height: 6px;
+                border-radius: 5px;
+                background: %s;
+            }
+        """ % (Config.font_settings['note_font'], BColors.sub_text.value, BColors.sub_text.value, self.color)
+        self.button_style = """
+            QPushButton {
+                font-family: %s;
+                font-size: 13px;
+                font-weight: bold;
+                color: %s;
+                background: transparent;
+                border: 2px solid %s;
+                border-radius: 4px;
+            }
+            QPushButton::hover {
+                background: %s;
+                color: %s;
+                border: 2px solid %s;
+            }
+        """ % (Config.font_settings['glyph_icon_font'], self.color, self.color, self.color, BColors.text.value,
+               BColors.text.value)
 
         self._setup_gui()
         self._setup_action()
@@ -174,6 +242,7 @@ class ProfileEditor(ComponentEditor):
     def __init__(self, parent_window=None):
         super().__init__('Profile', parent_window)
 
+
     def _setup_gui(self):
         super()._setup_gui()
 
@@ -186,7 +255,7 @@ class ProfileEditor(ComponentEditor):
                                    parent=self)
         label_editor_type.setWordWrap(True)
         label_editor_type.setStyleSheet(self.small_text_style)
-        label_editor_type.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        spacer_label_editor_type = QSpacerItem(10, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         self.label_component_name = QLabel('name', parent=self)
         self.label_component_name.setStyleSheet(self.name_text_style)
         self.hlayout_components = QHBoxLayout(self)
@@ -194,23 +263,162 @@ class ProfileEditor(ComponentEditor):
         self.drop_widget_blender_program = ComponentEditorDropWidget(self, 'BlenderProgram')
         self.drop_widget_blender_setup = ComponentEditorDropWidget(self, 'BlenderSetup')
         self.drop_widget_blender_venv = ComponentEditorDropWidget(self, 'BlenderVenv')
-        label_launch_blender = QLabel('Launch Blender', parent=self)
+        spacer_label_drop_widgets = QSpacerItem(10, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        hlayout_launch_options = QHBoxLayout(self)
+        hlayout_launch_options.setSpacing(12)
+        vlayout_launch_blender = QVBoxLayout(self)
+        vlayout_launch_blender.setSpacing(4)
+        label_launch_blender = QLabel('Blender Launch Options', parent=self)
+        label_launch_blender.setStyleSheet(self.sub_name_text_style)
+        frame_launch_blender = QFrame(self)
+        frame_launch_blender.setFrameShape(QFrame.Shape.HLine)
+        frame_launch_blender.setStyleSheet(f'color: {BColors.sub_text.value};')
+        glayout_launch_blender = QGridLayout(self)
+        glayout_launch_blender.setSpacing(4)
+        glayout_launch_blender.setContentsMargins(0, 0, 0, 0)
+        self.checkbox_launch_blender_user_config = QCheckBox('User config', parent=self)
+        self.checkbox_launch_blender_user_config.setToolTip('Use the user config included in the Setup linked in this '
+                                                       'profile.')
+        self.checkbox_launch_blender_user_config.setStyleSheet(self.launch_option_check_box_style)
+        self.checkbox_launch_blender_user_addons_scripts = QCheckBox('User addons/scripts', parent=self)
+        self.checkbox_launch_blender_user_addons_scripts.setToolTip('Use addons and scripts included in the Setup linked in'
+                                                               'this profile.')
+        self.checkbox_launch_blender_user_addons_scripts.setStyleSheet(self.launch_option_check_box_style)
+        self.checkbox_launch_blender_venv_site_packages = QCheckBox('Venv site-packages', parent=self)
+        self.checkbox_launch_blender_venv_site_packages.setToolTip('Include the site-packages from the Venv linked in this '
+                                                              'profile, if any.')
+        self.checkbox_launch_blender_venv_site_packages.setStyleSheet(self.launch_option_check_box_style)
+        self.checkbox_launch_blender_venv_bpy = QCheckBox('Venv bpy package', parent=self)
+        self.checkbox_launch_blender_venv_bpy.setToolTip('Include the bpy package from the Venv linked in this profile, if '
+                                                    'any.')
+        self.checkbox_launch_blender_venv_bpy.setStyleSheet(self.launch_option_check_box_style)
+        self.checkbox_launch_blender_venv_python_dev_libs = QCheckBox('Venv Python dev libraries', parent=self)
+        self.checkbox_launch_blender_venv_python_dev_libs.setToolTip('Include the Python dev libraries from the Venv linked '
+                                                                'in this profile, if any.')
+        self.checkbox_launch_blender_venv_python_dev_libs.setStyleSheet(self.launch_option_check_box_style)
+        spacer_launch_blender_options = QSpacerItem(10, 6, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        hlayout_blender_launch_button = QHBoxLayout(self)
+        button_launch_blender = QPushButton('\U000f14df Launch Blender', parent=self)
+        button_launch_blender.setFixedSize(144, 24)
+        button_launch_blender.setStyleSheet(self.button_style)
+        vlayout_launch_venv = QVBoxLayout(self)
+        vlayout_launch_venv.setSpacing(4)
+        label_launch_venv = QLabel('Virtual Environment Launch Options', parent=self)
+        label_launch_venv.setStyleSheet(self.sub_name_text_style)
+        frame_launch_venv = QFrame(self)
+        frame_launch_venv.setFrameShape(QFrame.Shape.HLine)
+        frame_launch_venv.setStyleSheet(f'color: {BColors.sub_text.value};')
+        glayout_launch_venv = QGridLayout(self)
+        self.checkbox_launch_venv_bpy = QCheckBox('Venv bpy package', parent=self)
+        self.checkbox_launch_venv_bpy.setToolTip('Include the bpy package from the Venv linked in this profile, if any.')
+        self.checkbox_launch_venv_bpy.setStyleSheet(self.launch_option_check_box_style)
+        self.checkbox_launch_venv_python_dev_libs = QCheckBox('Venv Python dev libraries', parent=self)
+        self.checkbox_launch_venv_python_dev_libs.setToolTip('Include the Python dev libraries from the Venv linked in this '
+                                                        'profile, if any.')
+        self.checkbox_launch_venv_python_dev_libs.setStyleSheet(self.launch_option_check_box_style)
+        spacer_launch_venv_options = QSpacerItem(10, 6, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        hlayout_venv_launch_button = QHBoxLayout(self)
+        button_launch_venv = QPushButton('\U000f14df Launch Venv', parent=self)
+        button_launch_venv.setFixedSize(124, 24)
+        button_launch_venv.setStyleSheet(self.button_style)
 
         self.hlayout.addLayout(vlayout)
         vlayout.addWidget(label_editor_type)
+        vlayout.addItem(spacer_label_editor_type)
         vlayout.addWidget(self.label_component_name)
         vlayout.addLayout(self.hlayout_components)
         self.hlayout_components.addWidget(self.drop_widget_blender_program)
         self.hlayout_components.addWidget(self.drop_widget_blender_setup)
         self.hlayout_components.addWidget(self.drop_widget_blender_venv)
-        vlayout.addWidget(label_launch_blender)
+        vlayout.addItem(spacer_label_drop_widgets)
+        vlayout.addLayout(hlayout_launch_options)
+        hlayout_launch_options.addLayout(vlayout_launch_blender)
+        vlayout_launch_blender.addWidget(label_launch_blender)
+        vlayout_launch_blender.addWidget(frame_launch_blender)
+        vlayout_launch_blender.addLayout(glayout_launch_blender)
+        glayout_launch_blender.addWidget(self.checkbox_launch_blender_user_config, 0, 0, 1, 1)
+        glayout_launch_blender.addWidget(self.checkbox_launch_blender_user_addons_scripts, 0, 1, 1, 1)
+        glayout_launch_blender.addWidget(self.checkbox_launch_blender_venv_site_packages, 1, 0, 1, 1)
+        glayout_launch_blender.addWidget(self.checkbox_launch_blender_venv_bpy, 1, 1, 1, 1)
+        glayout_launch_blender.addWidget(self.checkbox_launch_blender_venv_python_dev_libs, 2, 0, 1, 1)
+        vlayout_launch_blender.addItem(spacer_launch_blender_options)
+        vlayout_launch_blender.addLayout(hlayout_blender_launch_button)
+        hlayout_blender_launch_button.addStretch()
+        hlayout_blender_launch_button.addWidget(button_launch_blender)
+        hlayout_blender_launch_button.addStretch()
+        vlayout_launch_blender.addStretch()
+        hlayout_launch_options.addLayout(vlayout_launch_venv)
+        vlayout_launch_venv.addWidget(label_launch_venv)
+        vlayout_launch_venv.addWidget(frame_launch_venv)
+        vlayout_launch_venv.addLayout(glayout_launch_venv)
+        glayout_launch_venv.addWidget(self.checkbox_launch_venv_bpy, 0, 0, 1, 1)
+        glayout_launch_venv.addWidget(self.checkbox_launch_venv_python_dev_libs, 0, 1, 1, 1)
+        vlayout_launch_venv.addItem(spacer_launch_venv_options)
+        vlayout_launch_venv.addLayout(hlayout_venv_launch_button)
+        hlayout_venv_launch_button.addStretch()
+        hlayout_venv_launch_button.addWidget(button_launch_venv)
+        hlayout_venv_launch_button.addStretch()
+        vlayout_launch_venv.addStretch()
         vlayout.addStretch()
+
+    def _setup_action(self):
+        super()._setup_action()
+        self._launch_option_checkbox_event_action('connect')
+
+    def _launch_option_checkbox_event_action(self, action):
+        checkboxes = [self.checkbox_launch_blender_user_config, self.checkbox_launch_blender_user_addons_scripts,
+                      self.checkbox_launch_blender_venv_site_packages, self.checkbox_launch_blender_venv_bpy,
+                      self.checkbox_launch_blender_venv_python_dev_libs, self.checkbox_launch_venv_bpy,
+                      self.checkbox_launch_venv_python_dev_libs]
+        for checkbox in checkboxes:
+            if action == 'connect':
+                checkbox.stateChanged.connect(self.save_launch_configs_in_profile)
+            elif action == 'disconnect':
+                checkbox.stateChanged.disconnect(self.save_launch_configs_in_profile)
+            else:
+                raise ValueError(f'Invalid action: {action}')
+
+    def save_launch_configs_in_profile(self):
+        if self.component is not None:
+            blender_launch_config = BlenderLaunchConfig()
+            blender_launch_config.if_use_blender_setup_config = self.checkbox_launch_blender_user_config.isChecked()
+            blender_launch_config.if_use_blender_setup_addons_scripts = (
+                self.checkbox_launch_blender_user_addons_scripts.isChecked())
+            blender_launch_config.if_include_venv_site_packages = (
+                self.checkbox_launch_blender_venv_site_packages.isChecked())
+            blender_launch_config.if_include_venv_bpy = self.checkbox_launch_blender_venv_bpy.isChecked()
+            blender_launch_config.if_include_venv_python_dev_libs = (
+                self.checkbox_launch_blender_venv_python_dev_libs.isChecked())
+            self.component.update_launch_config(blender_launch_config)
+            venv_launch_config = VenvLaunchConfig()
+            venv_launch_config.if_include_venv_bpy = self.checkbox_launch_venv_bpy.isChecked()
+            venv_launch_config.if_include_venv_python_dev_libs = self.checkbox_launch_venv_python_dev_libs.isChecked()
+            self.component.update_launch_config(venv_launch_config)
+
+    def _load_launch_configs(self):
+        if self.component is not None:
+            self._launch_option_checkbox_event_action('disconnect')
+            blender_launch_config = self.component.blender_launch_config
+            self.checkbox_launch_blender_user_config.setChecked(blender_launch_config.if_use_blender_setup_config)
+            self.checkbox_launch_blender_user_addons_scripts.setChecked(
+                blender_launch_config.if_use_blender_setup_addons_scripts)
+            self.checkbox_launch_blender_venv_site_packages.setChecked(blender_launch_config.if_include_venv_site_packages)
+            self.checkbox_launch_blender_venv_bpy.setChecked(blender_launch_config.if_include_venv_bpy)
+            self.checkbox_launch_blender_venv_python_dev_libs.setChecked(
+                blender_launch_config.if_include_venv_python_dev_libs)
+            venv_launch_config = self.component.venv_launch_config
+            self.checkbox_launch_venv_bpy.setChecked(venv_launch_config.if_include_venv_bpy)
+            self.checkbox_launch_venv_python_dev_libs.setChecked(venv_launch_config.if_include_venv_python_dev_libs)
+            self._launch_option_checkbox_event_action('connect')
 
     def load_component(self, component):
         if component.__class__.__name__ == self.component_class_name:
             self.component = component
             self.label_component_name.setText(self.component.name)
-
+            self.drop_widget_blender_program.component = component.blender_program
+            self.drop_widget_blender_setup.component = component.blender_setup
+            self.drop_widget_blender_venv.component = component.blender_venv
+            self._load_launch_configs()
             self.parent().setCurrentWidget(self)
 
 

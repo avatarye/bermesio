@@ -35,7 +35,7 @@ def test_blender_setup_class():
     blender_launch_config.if_use_blender_setup_addons_scripts = True
     blender_launch_config.if_include_venv_site_packages = True
     blender_launch_config.if_include_venv_bpy = True
-    blender_launch_config.if_include_venv_local_libs = True
+    blender_launch_config.if_include_venv_python_dev_libs = True
     profile.launch_blender(blender_launch_config)
 
     # Test launching Venv
