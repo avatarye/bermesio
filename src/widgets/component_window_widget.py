@@ -103,7 +103,7 @@ class ComponentWindowWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setOpacity(0.03)
-        pixmap = QPixmap(str(get_app_icon_path(256)))
+        pixmap = QPixmap(str(get_app_icon_path(256))).scaled(384, 384, Qt.AspectRatioMode.KeepAspectRatio)
         painter.drawPixmap(int(central_widget.rect().width() / 2 - pixmap.width() / 2),
                            int(central_widget.rect().height() / 2 - pixmap.height() / 2)
                            - pos_in_central_widget.y() + 20,

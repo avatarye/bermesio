@@ -1,10 +1,10 @@
 from PyQt6.QtCore import Qt, QRect
-from PyQt6.QtGui import QPainter, QPixmap, QColor, QPen
+from PyQt6.QtGui import QPainter, QPixmap, QColor, QPen, QIcon
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, QSizePolicy, QFrame, QSpacerItem, QGridLayout,
                              QCheckBox, QPushButton)
 
 from commons.color import BColors
-from commons.qt_common import get_app_icon_path, LabelVerticalBar
+from commons.qt_common import get_app_icon_path, LabelVerticalBar, get_glyph_icon
 from commons.qt_singal import SIGNAL
 from components.profile import BlenderLaunchConfig, VenvLaunchConfig
 from components.repository import Repository
@@ -112,6 +112,7 @@ class ComponentEditor(QWidget):
     def __init__(self, component_class_name, parent_window=None):
         super().__init__()
         self.component_class_name = component_class_name
+        self.component = None
         self.parent_window = parent_window
         self.component_setting_dict = Config.component_settings[self.component_class_name]
         self.name = self.component_setting_dict['name']
@@ -165,6 +166,8 @@ class ComponentEditor(QWidget):
             }
         """ % (Config.font_settings['glyph_icon_font'], self.color, self.color, self.color, BColors.text.value,
                BColors.text.value)
+        self.sub_title_icon_style = (f'font-family: {Config.font_settings["glyph_icon_font"]}; font-size: 16px;'
+                                     f'border: 0px; background: transparent; color: {BColors.sub_text.value};')
 
         self._setup_gui()
         self._setup_action()
@@ -184,6 +187,15 @@ class ComponentEditor(QWidget):
     def load_component(self, component):
         ...
 
+    def _update_verification_label(self, label):
+        if self.component is not None and self.component.verify():
+            verification_pixmap = QIcon(get_glyph_icon('\U0000f058', Config.font_settings['glyph_icon_font'],
+                                                       'green', 16)).pixmap(16, 16)
+        else:
+            verification_pixmap = QIcon(get_glyph_icon('\U0000f057', Config.font_settings['glyph_icon_font'],
+                                                       'red', 16)).pixmap(16, 16)
+        label.setPixmap(verification_pixmap)
+
     def paintEvent(self, event):
         # Draw the logo as background using the central widget as the reference
         central_widget = self.parent_window.findChild(QWidget, 'BaseWindowCentralWidget')
@@ -191,7 +203,7 @@ class ComponentEditor(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setOpacity(0.03)
-        pixmap = QPixmap(str(get_app_icon_path(256)))
+        pixmap = QPixmap(str(get_app_icon_path(512))).scaled(384, 384, Qt.AspectRatioMode.KeepAspectRatio)
         painter.drawPixmap(int(central_widget.rect().width() / 2 - pixmap.width() / 2),
                            int(central_widget.rect().height() / 2 - pixmap.height() / 2)
                            - pos_in_central_widget.y() + 20, pixmap)
@@ -246,6 +258,7 @@ class ProfileEditor(ComponentEditor):
     def _setup_gui(self):
         super()._setup_gui()
 
+        # Define widgets
         vlayout = QVBoxLayout(self)
         vlayout.setContentsMargins(4, 0, 0, 0)
         vlayout.setSpacing(4)
@@ -256,18 +269,34 @@ class ProfileEditor(ComponentEditor):
         label_editor_type.setWordWrap(True)
         label_editor_type.setStyleSheet(self.small_text_style)
         spacer_label_editor_type = QSpacerItem(10, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+
+        ## Define the name label
+        hlayout_component_name = QHBoxLayout(self)
+        self.label_component_verified = QLabel(self)
+        self._update_verification_label(self.label_component_verified)
         self.label_component_name = QLabel('name', parent=self)
         self.label_component_name.setStyleSheet(self.name_text_style)
+        self.button_rename = ComponentOpsButton('\U0000f45a', self.color, parent=self)
+        self.button_rename.setToolTip('Rename')
+
+        ## Define the drop widgets
         self.hlayout_components = QHBoxLayout(self)
         self.hlayout_components.setSpacing(4)
         self.drop_widget_blender_program = ComponentEditorDropWidget(self, 'BlenderProgram')
         self.drop_widget_blender_setup = ComponentEditorDropWidget(self, 'BlenderSetup')
         self.drop_widget_blender_venv = ComponentEditorDropWidget(self, 'BlenderVenv')
         spacer_label_drop_widgets = QSpacerItem(10, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+
+        ## Define the launch options
         hlayout_launch_options = QHBoxLayout(self)
         hlayout_launch_options.setSpacing(12)
         vlayout_launch_blender = QVBoxLayout(self)
         vlayout_launch_blender.setSpacing(4)
+        hlayout_launch_blender_title = QHBoxLayout(self)
+        hlayout_launch_blender_title.setSpacing(4)
+        hlayout_launch_blender_title.setContentsMargins(0, 0, 0, 0)
+        label_launch_blender_icon = QLabel('\U000f00ab', parent=self)
+        label_launch_blender_icon.setStyleSheet(self.sub_title_icon_style)
         label_launch_blender = QLabel('Blender Launch Options', parent=self)
         label_launch_blender.setStyleSheet(self.sub_name_text_style)
         frame_launch_blender = QFrame(self)
@@ -298,11 +327,16 @@ class ProfileEditor(ComponentEditor):
         self.checkbox_launch_blender_venv_python_dev_libs.setStyleSheet(self.launch_option_check_box_style)
         spacer_launch_blender_options = QSpacerItem(10, 6, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         hlayout_blender_launch_button = QHBoxLayout(self)
-        button_launch_blender = QPushButton('\U000f14df Launch Blender', parent=self)
-        button_launch_blender.setFixedSize(144, 24)
-        button_launch_blender.setStyleSheet(self.button_style)
+        self.button_launch_blender = QPushButton('\U000f14df Launch Blender', parent=self)
+        self.button_launch_blender.setFixedSize(144, 24)
+        self.button_launch_blender.setStyleSheet(self.button_style)
         vlayout_launch_venv = QVBoxLayout(self)
         vlayout_launch_venv.setSpacing(4)
+        hlayout_launch_venv_title = QHBoxLayout(self)
+        hlayout_launch_venv_title.setSpacing(4)
+        hlayout_launch_venv_title.setContentsMargins(0, 0, 0, 0)
+        label_launch_venv_icon = QLabel('\U000f0862', parent=self)
+        label_launch_venv_icon.setStyleSheet(self.sub_title_icon_style)
         label_launch_venv = QLabel('Virtual Environment Launch Options', parent=self)
         label_launch_venv.setStyleSheet(self.sub_name_text_style)
         frame_launch_venv = QFrame(self)
@@ -318,14 +352,19 @@ class ProfileEditor(ComponentEditor):
         self.checkbox_launch_venv_python_dev_libs.setStyleSheet(self.launch_option_check_box_style)
         spacer_launch_venv_options = QSpacerItem(10, 6, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
         hlayout_venv_launch_button = QHBoxLayout(self)
-        button_launch_venv = QPushButton('\U000f14df Launch Venv', parent=self)
-        button_launch_venv.setFixedSize(124, 24)
-        button_launch_venv.setStyleSheet(self.button_style)
+        self.button_launch_venv = QPushButton('\U000f14df Launch Venv', parent=self)
+        self.button_launch_venv.setFixedSize(124, 24)
+        self.button_launch_venv.setStyleSheet(self.button_style)
 
+        # Define layout
         self.hlayout.addLayout(vlayout)
         vlayout.addWidget(label_editor_type)
         vlayout.addItem(spacer_label_editor_type)
-        vlayout.addWidget(self.label_component_name)
+        vlayout.addLayout(hlayout_component_name)
+        hlayout_component_name.addWidget(self.label_component_verified)
+        hlayout_component_name.addWidget(self.label_component_name)
+        hlayout_component_name.addWidget(self.button_rename)
+        hlayout_component_name.addStretch()
         vlayout.addLayout(self.hlayout_components)
         self.hlayout_components.addWidget(self.drop_widget_blender_program)
         self.hlayout_components.addWidget(self.drop_widget_blender_setup)
@@ -333,7 +372,10 @@ class ProfileEditor(ComponentEditor):
         vlayout.addItem(spacer_label_drop_widgets)
         vlayout.addLayout(hlayout_launch_options)
         hlayout_launch_options.addLayout(vlayout_launch_blender)
-        vlayout_launch_blender.addWidget(label_launch_blender)
+        vlayout_launch_blender.addLayout(hlayout_launch_blender_title)
+        hlayout_launch_blender_title.addWidget(label_launch_blender_icon)
+        hlayout_launch_blender_title.addWidget(label_launch_blender)
+        hlayout_launch_blender_title.addStretch()
         vlayout_launch_blender.addWidget(frame_launch_blender)
         vlayout_launch_blender.addLayout(glayout_launch_blender)
         glayout_launch_blender.addWidget(self.checkbox_launch_blender_user_config, 0, 0, 1, 1)
@@ -344,11 +386,14 @@ class ProfileEditor(ComponentEditor):
         vlayout_launch_blender.addItem(spacer_launch_blender_options)
         vlayout_launch_blender.addLayout(hlayout_blender_launch_button)
         hlayout_blender_launch_button.addStretch()
-        hlayout_blender_launch_button.addWidget(button_launch_blender)
+        hlayout_blender_launch_button.addWidget(self.button_launch_blender)
         hlayout_blender_launch_button.addStretch()
         vlayout_launch_blender.addStretch()
         hlayout_launch_options.addLayout(vlayout_launch_venv)
-        vlayout_launch_venv.addWidget(label_launch_venv)
+        vlayout_launch_venv.addLayout(hlayout_launch_venv_title)
+        hlayout_launch_venv_title.addWidget(label_launch_venv_icon)
+        hlayout_launch_venv_title.addWidget(label_launch_venv)
+        hlayout_launch_venv_title.addStretch()
         vlayout_launch_venv.addWidget(frame_launch_venv)
         vlayout_launch_venv.addLayout(glayout_launch_venv)
         glayout_launch_venv.addWidget(self.checkbox_launch_venv_bpy, 0, 0, 1, 1)
@@ -356,7 +401,7 @@ class ProfileEditor(ComponentEditor):
         vlayout_launch_venv.addItem(spacer_launch_venv_options)
         vlayout_launch_venv.addLayout(hlayout_venv_launch_button)
         hlayout_venv_launch_button.addStretch()
-        hlayout_venv_launch_button.addWidget(button_launch_venv)
+        hlayout_venv_launch_button.addWidget(self.button_launch_venv)
         hlayout_venv_launch_button.addStretch()
         vlayout_launch_venv.addStretch()
         vlayout.addStretch()
@@ -364,6 +409,8 @@ class ProfileEditor(ComponentEditor):
     def _setup_action(self):
         super()._setup_action()
         self._launch_option_checkbox_event_action('connect')
+        self.button_launch_blender.clicked.connect(self._launch_blender)
+        self.button_launch_venv.clicked.connect(self._launch_venv)
 
     def _launch_option_checkbox_event_action(self, action):
         checkboxes = [self.checkbox_launch_blender_user_config, self.checkbox_launch_blender_user_addons_scripts,
@@ -411,6 +458,21 @@ class ProfileEditor(ComponentEditor):
             self.checkbox_launch_venv_python_dev_libs.setChecked(venv_launch_config.if_include_venv_python_dev_libs)
             self._launch_option_checkbox_event_action('connect')
 
+    def _launch_blender(self):
+        if self.component is not None:
+            self.component.launch_blender(self.component.blender_launch_config)
+
+    def _launch_venv(self):
+        if self.component is not None:
+            self.component.launch_venv(self.component.venv_launch_config)
+
+    def verify_and_update_gui(self):
+        self._update_verification_label(self.label_component_verified)
+        self.button_launch_venv.setEnabled(self.component.blender_venv is not None
+                                           and self.component.blender_venv.verify())
+        self.button_launch_blender.setEnabled(self.component.blender_program is not None
+                                              and self.component.blender_program.verify())
+
     def load_component(self, component):
         if component.__class__.__name__ == self.component_class_name:
             self.component = component
@@ -419,6 +481,7 @@ class ProfileEditor(ComponentEditor):
             self.drop_widget_blender_setup.component = component.blender_setup
             self.drop_widget_blender_venv.component = component.blender_venv
             self._load_launch_configs()
+            self.verify_and_update_gui()
             self.parent().setCurrentWidget(self)
 
 
@@ -445,6 +508,7 @@ class BlenderSetupEditor(ComponentEditor):
     def load_component(self, component):
         if component.__class__.__name__ == self.component_class_name:
             self.parent().setCurrentWidget(self)
+
 
 class BlenderVenvEditor(ComponentEditor):
     def __init__(self, parent_window=None):
