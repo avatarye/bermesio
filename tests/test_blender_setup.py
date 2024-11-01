@@ -4,7 +4,7 @@ import shutil
 
 from testing_common import TESTDATA, is_dillable, get_repo
 
-from components.blender_setup import BlenderSetupManager, BlenderSetup
+from bermesio.components.blender_setup import BlenderSetupManager, BlenderSetup
 
 
 def test_blender_setup_class():

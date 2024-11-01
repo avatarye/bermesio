@@ -4,7 +4,7 @@ from packaging.version import Version
 
 from testing_common import TESTDATA, is_dillable, get_repo
 
-from components.blender_program import BlenderProgramManager
+from bermesio.components.blender_program import BlenderProgramManager
 
 
 def test_blender_program_class():

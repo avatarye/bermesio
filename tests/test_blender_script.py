@@ -1,7 +1,7 @@
 from pathlib import Path
 import shutil
 
-from components.blender_script import BlenderScriptManager
+from bermesio.components.blender_script import BlenderScriptManager
 
 from testing_common import TESTDATA, is_dillable, get_repo
 

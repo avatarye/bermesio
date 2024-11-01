@@ -5,9 +5,9 @@ from packaging.version import Version
 
 from testing_common import TESTDATA, is_dillable, get_repo
 
-from components.blender_program import BlenderProgram, BlenderProgramManager
-from components.blender_venv import BlenderVenvManager
-from components.python_package import PythonPyPIPackage, PythonPackageSet
+from bermesio.components.blender_program import BlenderProgram, BlenderProgramManager
+from bermesio.components.blender_venv import BlenderVenvManager
+from bermesio.components.python_package import PythonPyPIPackage, PythonPackageSet
 
 
 def test_blender_venv_class():

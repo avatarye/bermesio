@@ -1,26 +1,22 @@
-[project]
+[tool.poetry]
 name = "Bermesio"
 version = "0.1.0"
 description = "Blender Production Environment Manager"
-authors = [
-    {name = "Yongqing Ye", email = "avatar.ye@gmail.com"},
-]
-dependencies = [
-    "PyQt6>=6.6.1",
-    "packaging>=23.2",
-    "virtualenv>=20.25.0",
-    "setuptools>=69.0.3",
-    "pytest>=7.4.3",
-    "dill>=0.3.7",
-]
-requires-python = ">=3.10"
+authors = ["Yongqing Ye <avatar.ye@gmail.com>"]
+license = "MIT"
 readme = "README.md"
-license = {text = "MIT"}
+packages = [{include = "bermesio", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+PyQt6 = "^6.6.1"
+packaging = "^23.2"
+virtualenv = "^20.25.0"
+setuptools = "^69.0.3"
+pytest = "^7.4.3"
+dill = "^0.3.7"
+requests = "^2.32.3"
 
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-
-[tool.pdm]
-package-type = "library"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

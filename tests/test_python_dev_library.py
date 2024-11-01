@@ -2,7 +2,7 @@ from pathlib import Path
 
 import shutil
 
-from components.python_dev_library import PythonDevLibraryManager
+from bermesio.components.python_dev_library import PythonDevLibraryManager
 
 from testing_common import TESTDATA, is_dillable, get_repo
 

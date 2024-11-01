@@ -5,7 +5,7 @@ import sys
 
 import dill
 
-from components.repository import Repository
+from bermesio.components.repository import Repository
 
 
 class TestData:

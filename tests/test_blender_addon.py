@@ -4,7 +4,7 @@ from zipfile import ZipFile
 from packaging.version import Version
 import shutil
 
-from components.blender_addon import BlenderAddonManager
+from bermesio.components.blender_addon import BlenderAddonManager
 
 from testing_common import TESTDATA, is_dillable, get_repo
 

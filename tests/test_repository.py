@@ -4,17 +4,17 @@ import shutil
 
 from testing_common import TESTDATA, is_dillable, get_repo
 
-from components.repository import Repository
-from components.blender_addon import (BlenderAddonManager, BlenderZippedAddon, BlenderDirectoryAddon,
+from bermesio.components.repository import Repository
+from bermesio.components.blender_addon import (BlenderAddonManager, BlenderZippedAddon, BlenderDirectoryAddon,
                                       BlenderDevDirectoryAddon, BlenderDevSingleFileAddon, BlenderSingleFileAddon)
-from components.blender_program import BlenderProgramManager, BlenderProgram
-from components.blender_script import (BlenderScriptManager, BlenderRegularScript, BlenderStartupScript,
+from bermesio.components.blender_program import BlenderProgramManager, BlenderProgram
+from bermesio.components.blender_script import (BlenderScriptManager, BlenderRegularScript, BlenderStartupScript,
                                        BlenderDevRegularScript, BlenderDevStartupScript)
-from components.blender_setup import BlenderSetupManager, BlenderSetup
-from components.blender_venv import BlenderVenvManager, BlenderVenv
-from components.profile import ProfileManager, Profile
-from components.python_dev_library import PythonDevLibraryManager, PythonDevLibrary
-from components.python_package import PythonPyPIPackage
+from bermesio.components.blender_setup import BlenderSetupManager, BlenderSetup
+from bermesio.components.blender_venv import BlenderVenvManager, BlenderVenv
+from bermesio.components.profile import ProfileManager, Profile
+from bermesio.components.python_dev_library import PythonDevLibraryManager, PythonDevLibrary
+from bermesio.components.python_package import PythonPyPIPackage
 
 
 def test_repository_class_creation_functions():

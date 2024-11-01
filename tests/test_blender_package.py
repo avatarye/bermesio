@@ -3,7 +3,7 @@ from pathlib import Path
 
 from testing_common import TESTDATA, is_dillable
 
-from components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonPackageSet
+from bermesio.components.python_package import PythonLocalPackage, PythonPyPIPackage, PythonPackageSet
 
 
 def test_python_local_package_class():

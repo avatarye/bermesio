@@ -1,4 +1,4 @@
-from commons.common import blog
+from bermesio.commons.common import blog
 
 
 def test_logging():
